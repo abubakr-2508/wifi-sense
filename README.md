@@ -18,13 +18,7 @@ and it changes when a human body moves through the signal path. This project
 turns that side effect into a sensor: no cameras, no wearables, no line of
 sight required.
 
-```
-source  ──►  DSP  ──►  detector  ──►  dashboard / report
-  │           │           │
-  │           │           └─ ambient calibration, z-score, hysteresis, debounce
-  │           └─ Hampel filter, detrend, Butterworth band-pass, Welch PSD
-  └─ live RSSI  ·  recorded CSI  ·  ESP32-S3 over UDP
-```
+![Architecture](docs/architecture.svg)
 
 Sources are interchangeable behind one interface, so moving from replayed
 capture to live hardware is a command-line flag rather than a rewrite.
