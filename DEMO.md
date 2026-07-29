@@ -51,11 +51,29 @@ progress bar reads "learning ambient baseline".
    trained keypoint weights are loaded — it draws nothing rather than drawing a
    fabrication."*
 
-3. **Subcarrier amplitudes** — 64 live bars. Say: *"Real Channel State
-   Information — per-subcarrier magnitude, captured from a two-node ESP32-S3
-   mesh at 20 Hz."*
+3. **Channel waterfall** — your strongest visual. Subcarrier against time, colour
+   is amplitude, scrolling live. This is the standard display in CSI
+   literature, and it is the raw measured channel with nothing added.
 
-4. **Stream panel** — measured rate against nominal. Say: *"Measured throughput,
+   Point at the **dark horizontal band** across the middle and say: *"Those are
+   the guard subcarriers — 802.11 transmits nothing there, so they carry no
+   channel estimate. Same for the single dark line at subcarrier zero, the DC
+   null. My detector excludes those before selecting subcarriers, because a
+   structural zero is not a quiet channel."*
+
+   Then point at the vertical texture: *"That variation is the channel changing
+   over time. That is the sensing signal — everything else in the pipeline is
+   extracting structure from it."*
+
+   This is the moment to pre-empt the skeleton question: *"A reference
+   implementation would draw a skeleton here. Mine shows the measurement
+   instead, because I have no trained pose model and drawing one would mean
+   showing you something that isn't real."*
+
+4. **Subcarrier amplitudes** — 64 live bars, the current frame as a cross-section
+   of the waterfall's rightmost column.
+
+5. **Stream panel** — measured rate against nominal. Say: *"Measured throughput,
    not assumed. The frequency analysis depends on the real sample rate, so it's
    reported rather than trusted."*
 

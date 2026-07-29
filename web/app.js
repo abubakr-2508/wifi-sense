@@ -180,6 +180,141 @@
     return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
   }
 
+  /* ---------- waterfall ---------- */
+
+  // Viridis control points — the same colormap the offline matplotlib figures
+  // use, so the live display and the report figures are directly comparable.
+  // Perceptually uniform, and legible to viewers with colour vision deficiency.
+  var VIRIDIS = [
+    [68, 1, 84], [72, 40, 120], [62, 73, 137], [49, 104, 142],
+    [38, 130, 142], [31, 158, 137], [53, 183, 121], [110, 206, 88],
+    [181, 222, 43], [253, 231, 37]
+  ];
+
+  function viridis(t) {
+    if (!(t >= 0)) t = 0;
+    if (t > 1) t = 1;
+    var x = t * (VIRIDIS.length - 1);
+    var i = Math.floor(x);
+    if (i >= VIRIDIS.length - 1) return VIRIDIS[VIRIDIS.length - 1];
+    var f = x - i, a = VIRIDIS[i], b = VIRIDIS[i + 1];
+    return [
+      a[0] + (b[0] - a[0]) * f,
+      a[1] + (b[1] - a[1]) * f,
+      a[2] + (b[2] - a[2]) * f
+    ];
+  }
+
+  var wfCols = [];        // rolling column buffer, oldest first
+  var wfSeq = 0;          // last sequence number received
+  var wfLo = null;        // smoothed low end of the colour scale
+  var wfHi = null;
+  var wfOffscreen = null;
+
+  function wfCapacity(canvas) {
+    // One column per horizontal pixel — more would be discarded, fewer would
+    // waste width.
+    return Math.max(120, Math.min(900, canvas.clientWidth || 600));
+  }
+
+  function pushWaterfall(columns, canvas) {
+    if (!columns || !columns.length) return;
+    var cap = wfCapacity(canvas);
+    for (var i = 0; i < columns.length; i++) wfCols.push(columns[i]);
+    if (wfCols.length > cap) wfCols = wfCols.slice(wfCols.length - cap);
+  }
+
+  function updateScale() {
+    // Robust percentile scaling. Fixed min/max would let one spike wash the
+    // whole display out; the guard subcarriers sit at zero and would otherwise
+    // anchor the low end permanently.
+    var vals = [];
+    var step = Math.max(1, Math.floor(wfCols.length / 60));
+    for (var i = 0; i < wfCols.length; i += step) {
+      var col = wfCols[i];
+      for (var j = 0; j < col.length; j++) if (col[j] > 0) vals.push(col[j]);
+    }
+    if (vals.length < 10) return;
+    vals.sort(function (a, b) { return a - b; });
+    var lo = vals[Math.floor(vals.length * 0.02)];
+    var hi = vals[Math.floor(vals.length * 0.98)];
+    if (hi <= lo) hi = lo + 1;
+    // Ease the scale so the image does not flicker as the window slides.
+    wfLo = wfLo === null ? lo : wfLo * 0.85 + lo * 0.15;
+    wfHi = wfHi === null ? hi : wfHi * 0.85 + hi * 0.15;
+  }
+
+  function drawWaterfall(canvas) {
+    var ratio = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth;
+    var h = parseInt(canvas.getAttribute("height"), 10) || 200;
+    if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
+      canvas.width = w * ratio;
+      canvas.height = h * ratio;
+    }
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    if (!wfCols.length) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = COLORS.dim;
+      ctx.font = (12 * ratio) + "px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("waiting for CSI frames…", canvas.width / 2, canvas.height / 2);
+      return;
+    }
+
+    updateScale();
+
+    var nCols = wfCols.length;
+    var nRows = wfCols[0].length;
+    var span = (wfHi - wfLo) || 1;
+
+    // Build the image at native data resolution, then let the GPU scale it.
+    // Painting one rect per cell would be tens of thousands of draw calls.
+    if (!wfOffscreen) wfOffscreen = document.createElement("canvas");
+    if (wfOffscreen.width !== nCols || wfOffscreen.height !== nRows) {
+      wfOffscreen.width = nCols;
+      wfOffscreen.height = nRows;
+    }
+    var octx = wfOffscreen.getContext("2d");
+    var img = octx.createImageData(nCols, nRows);
+    var data = img.data;
+
+    for (var x = 0; x < nCols; x++) {
+      var col = wfCols[x];
+      for (var y = 0; y < nRows; y++) {
+        // Flip vertically so subcarrier 0 sits at the bottom, matching the
+        // matplotlib figures (origin="lower").
+        var v = col[nRows - 1 - y];
+        var c = viridis((v - wfLo) / span);
+        var o = (y * nCols + x) * 4;
+        data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255;
+      }
+    }
+    octx.putImageData(img, 0, 0);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(wfOffscreen, 0, 0, canvas.width, canvas.height);
+  }
+
+  function pollWaterfall(canvas, rateHz) {
+    fetch("/api/waterfall?since=" + wfSeq, { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.seq != null) wfSeq = d.seq;
+        pushWaterfall(d.columns, canvas);
+        drawWaterfall(canvas);
+        var secs = rateHz > 0 ? (wfCols.length / rateHz) : 0;
+        el("wf-meta").textContent =
+          wfCols.length + " frames · " + secs.toFixed(0) + "s window · " +
+          (wfCols.length ? wfCols[0].length : 0) + " subcarriers" +
+          (wfLo !== null ? " · scale " + wfLo.toFixed(1) + "–" + wfHi.toFixed(1) : "");
+      })
+      .catch(function () { /* the state poll already reports connection loss */ });
+  }
+
   /* ---------- render ---------- */
 
   function render(s) {
@@ -274,11 +409,19 @@
     });
 
     var subCard = el("sub-card");
+    var wfCard = el("wf-card");
     if (s.subcarriers && s.subcarriers.length) {
       subCard.hidden = false;
+      wfCard.hidden = false;
       drawBars(el("sub-chart"), s.subcarriers);
+      // Frame rate drives the window-duration label, so read it from the
+      // measured rate rather than the nominal one. Uses s.stats directly --
+      // the local `st` below is declared after this point.
+      var sst = s.stats || {};
+      pollWaterfall(el("wf-chart"), (sst.actual_rate_hz || sst.nominal_rate_hz || 0));
     } else {
       subCard.hidden = true;
+      wfCard.hidden = true;
     }
 
     // stream stats

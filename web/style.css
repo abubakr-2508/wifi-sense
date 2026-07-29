@@ -204,6 +204,36 @@ body {
 
 canvas { width: 100%; display: block; border-radius: 8px; background: var(--bg-sunken); }
 
+/* ---------- waterfall ---------- */
+
+/* Spans the full grid width: the time axis needs room, and squeezing it into
+   one column would make short motion events invisible. */
+.card-wide { grid-column: 1 / -1; }
+
+.wf-wrap { display: flex; gap: .5rem; align-items: stretch; }
+
+.wf-yaxis {
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-family: var(--mono); font-size: .64rem; color: var(--text-faint);
+  padding: 2px 0; flex: none; text-align: right; min-width: 1.4rem;
+}
+
+#wf-chart { image-rendering: pixelated; }  /* keep columns crisp, not smeared */
+
+.wf-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; margin-top: .55rem;
+  font-size: .68rem; color: var(--text-faint);
+}
+.wf-legend { display: flex; align-items: center; gap: .4rem; }
+.wf-ramp {
+  display: inline-block; width: 86px; height: 8px; border-radius: 2px;
+  /* viridis endpoints, matching the offline matplotlib figures */
+  background: linear-gradient(90deg,
+    #440154, #414487, #2a788e, #22a884, #7ad151, #fde725);
+}
+.wf-meta { font-family: var(--mono); }
+
 /* ---------- stats ---------- */
 
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: .7rem; }

@@ -105,6 +105,28 @@
     <canvas id="level-chart" height="180"></canvas>
   </section>
 
+  <!-- Waterfall (CSI only) -->
+  <section class="card card-wide" id="wf-card" hidden>
+    <div class="card-head">
+      <h2>Channel waterfall</h2>
+      <span class="hint">subcarrier × time · amplitude — the raw measured channel</span>
+    </div>
+    <div class="wf-wrap">
+      <div class="wf-yaxis">
+        <span>63</span><span>48</span><span>32</span><span>16</span><span>0</span>
+      </div>
+      <canvas id="wf-chart" height="200"></canvas>
+    </div>
+    <div class="wf-foot">
+      <span class="wf-legend">
+        low
+        <i class="wf-ramp"></i>
+        high
+      </span>
+      <span class="wf-meta" id="wf-meta">—</span>
+    </div>
+  </section>
+
   <!-- Subcarriers (CSI only) -->
   <section class="card card-chart" id="sub-card" hidden>
     <div class="card-head">
