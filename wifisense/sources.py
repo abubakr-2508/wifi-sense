@@ -263,7 +263,36 @@ class RecordedCSISource(Source):
                     continue
                 yield rec
 
+    def _detect_geometry(self, scan: int = 400) -> Optional[int]:
+        """Pre-scan the file to find the most common frame geometry.
+
+        Captures interleave 1-, 2- and 3-antenna frames. Locking onto whichever
+        happens to arrive first can select a minority population -- on node 1 of
+        the reference capture the first frame is 128 values while the modal
+        geometry is 64 (2133 frames against 503), so first-seen selection throws
+        away most of the data and analyses a different subset than the offline
+        tool, which picks the mode. That divergence would make the live demo and
+        the written results disagree for no legitimate reason.
+
+        Reading a few hundred frames up front is cheap and makes both paths
+        select the same population.
+        """
+        counts: dict[int, int] = {}
+        seen = 0
+        for rec in self._frames():
+            size = len(rec.get("iq_hex", "")) // 4  # 2 hex chars per byte, 2 bytes per bin
+            if size:
+                counts[size] = counts.get(size, 0) + 1
+                seen += 1
+            if seen >= scan:
+                break
+        return max(counts, key=counts.get) if counts else None
+
     def open(self) -> None:
+        # Determine the modal geometry before streaming so the live path and the
+        # offline analysis agree on which frames they are using.
+        if self._frame_len is None:
+            self._frame_len = self._detect_geometry()
         self._iter = self._frames()
         self._t0_wall = time.time()
         self._t0_rec = 0.0
