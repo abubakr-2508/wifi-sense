@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Analysis outputs — regenerate with analyze_csi.py
+output/
+output_overnight/
+
+# Recordings are large and belong to their original authors; see README
+*.csi.jsonl
+*.jsonl
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

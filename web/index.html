@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WiFi Sensing — Live Presence &amp; Motion</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <div class="brand-text">
+      <h1>WiFi Sensing</h1>
+      <p>Device-free presence &amp; motion detection from commodity WiFi</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="pill" id="source-pill">
+      <span class="pill-label">SOURCE</span>
+      <span class="pill-value" id="source-name">—</span>
+    </div>
+    <div class="live" id="live-dot" title="stream status">
+      <span class="dot"></span><span id="live-text">connecting</span>
+    </div>
+  </div>
+</header>
+
+<main class="grid">
+
+  <!-- Primary state -->
+  <section class="card card-state" id="state-card">
+    <div class="card-head">
+      <h2>Detection state</h2>
+      <button id="calibrate-btn" class="btn" title="Re-learn the ambient baseline. Keep the area still.">
+        Recalibrate
+      </button>
+    </div>
+
+    <div class="state-body">
+      <div class="state-ring" id="state-ring">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="ring-fill" id="ring-fill" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="state-ring-inner">
+          <span class="state-label" id="state-label">—</span>
+          <span class="state-conf" id="state-conf">—</span>
+        </div>
+      </div>
+
+      <div class="state-meta">
+        <div class="meta-row">
+          <span>Evidence (z-score)</span>
+          <strong id="z-value">—</strong>
+        </div>
+        <div class="meta-row">
+          <span>Enter / exit threshold</span>
+          <strong id="thresholds">—</strong>
+        </div>
+        <div class="meta-row">
+          <span>Signal level</span>
+          <strong id="rssi-value">—</strong>
+        </div>
+        <div class="meta-row">
+          <span>Baseline (ambient σ)</span>
+          <strong id="baseline-value">—</strong>
+        </div>
+        <div class="meta-row meta-vital" id="resp-row">
+          <span>Respiration rate</span>
+          <strong id="resp-value">—</strong>
+        </div>
+        <p class="note" id="state-note"></p>
+      </div>
+    </div>
+
+    <div class="calib-bar" id="calib-wrap">
+      <div class="calib-fill" id="calib-fill"></div>
+      <span class="calib-text" id="calib-text">calibrating…</span>
+    </div>
+  </section>
+
+  <!-- Capability honesty panel -->
+  <section class="card card-caps">
+    <div class="card-head"><h2>Measurable at this configuration</h2></div>
+    <ul class="caps" id="caps-list"></ul>
+    <p class="caps-foot" id="caps-foot"></p>
+  </section>
+
+  <!-- Charts -->
+  <section class="card card-chart">
+    <div class="card-head">
+      <h2>Motion evidence</h2>
+      <span class="hint">z-score of window dispersion vs ambient baseline</span>
+    </div>
+    <canvas id="z-chart" height="180"></canvas>
+  </section>
+
+  <section class="card card-chart">
+    <div class="card-head">
+      <h2>Signal level</h2>
+      <span class="hint" id="level-hint">dBm</span>
+    </div>
+    <canvas id="level-chart" height="180"></canvas>
+  </section>
+
+  <!-- Subcarriers (CSI only) -->
+  <section class="card card-chart" id="sub-card" hidden>
+    <div class="card-head">
+      <h2>Subcarrier amplitudes</h2>
+      <span class="hint">per-subcarrier magnitude, current frame</span>
+    </div>
+    <canvas id="sub-chart" height="150"></canvas>
+  </section>
+
+  <!-- Telemetry -->
+  <section class="card card-stats">
+    <div class="card-head"><h2>Stream</h2></div>
+    <div class="stat-grid" id="stat-grid"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span id="footer-note"></span>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
