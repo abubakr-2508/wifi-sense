@@ -388,8 +388,89 @@ def fig_node_agreement(results: dict, out: Path) -> dict:
     fig.savefig(out / "fig5_node_agreement.png")
     plt.close(fig)
 
+    controls = agreement_controls(grid, ia, ib, t1 - t0)
+
     return {"nodes": ns, "corr": corr, "mae": mae, "bias": bias, "loa": loa,
-            "points": int(grid.size)}
+            "points": int(grid.size), "controls": controls}
+
+
+def _median_note(controls: list[dict]) -> str:
+    """State what the median-difference column does or does not demonstrate.
+
+    The shuffle control is the fair comparison for the median: it reorders one
+    series without dropping any samples, so both medians are preserved exactly.
+    The time-shift controls truncate the arrays, which moves the medians for
+    reasons unrelated to signal -- so they cannot be used to make this point.
+    """
+    aligned = next((c for c in controls if c["pairing"].startswith("aligned")), None)
+    shuffled = next((c for c in controls if "shuffled" in c["pairing"]), None)
+    if not aligned or not shuffled:
+        return ("Median agreement alone cannot separate shared signal from "
+                "distributional similarity and is not treated as validation here.")
+
+    if abs(aligned["median_diff"] - shuffled["median_diff"]) < 1e-6:
+        return (
+            f"**The median difference is unchanged by shuffling "
+            f"({aligned['median_diff']:.3f} in both rows).** Median agreement is therefore a "
+            "property of the two distributions and demonstrates nothing about a shared "
+            "signal -- it must not be reported as validation. Temporal correlation "
+            "against these controls is the evidence; the median is not."
+        )
+    return (
+        f"Median difference is {aligned['median_diff']:.3f} aligned versus "
+        f"{shuffled['median_diff']:.3f} shuffled. Medians are a distributional summary and "
+        "are reported for completeness only; the temporal correlation above carries the "
+        "evidential weight."
+    )
+
+
+def agreement_controls(grid: np.ndarray, ia: np.ndarray, ib: np.ndarray,
+                       span: float) -> list[dict]:
+    """Decorrelate the two nodes and re-measure agreement.
+
+    Two nodes in the same room see similar interference and similar noise
+    statistics, so their *distributions* will resemble each other whether or
+    not they are tracking a shared signal. Comparing aligned series alone
+    therefore cannot distinguish "both observing the same chest" from "both
+    observing similar noise".
+
+    The control breaks the temporal pairing -- by time-shifting one series, and
+    by shuffling it outright -- while leaving both distributions untouched. Any
+    agreement that survives decorrelation is distributional and carries no
+    evidential weight; only agreement that *collapses* under the control
+    indicates a genuine shared time-varying signal.
+
+    This is what separates a real result from the plausible-looking artefact
+    documented in the README: median agreement is identical under every control
+    (and so proves nothing), while temporal correlation is not.
+    """
+    out = []
+
+    def measure(x, y, label):
+        if x.size < 10 or x.std() == 0 or y.std() == 0:
+            return
+        out.append({
+            "pairing": label,
+            "corr": float(np.corrcoef(x, y)[0, 1]),
+            "mae": float(np.mean(np.abs(x - y))),
+            "median_diff": float(abs(np.median(x) - np.median(y))),
+        })
+
+    measure(ia, ib, "aligned (true pairing)")
+    # Shift offsets scale with the recording, so short captures still get real
+    # controls instead of silently falling back to the shuffle alone.
+    for frac in (0.08, 0.17, 0.33, 0.5):
+        shift = span * frac
+        k = int(grid.size * frac)
+        if 0 < k < grid.size - 10:
+            measure(ia[:-k], ib[k:], f"shifted +{shift:.0f}s")
+
+    rng = np.random.default_rng(0)  # fixed seed: the control must be reproducible
+    shuffled = ib.copy()
+    rng.shuffle(shuffled)
+    measure(ia, shuffled, "fully shuffled")
+
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -543,6 +624,70 @@ def write_outputs(path: Path, out: Path, ds: dict, sel: dict,
                   f"- 95% limits of agreement: ±{agreement['loa']:.2f} br/min",
                   f"- Compared over {agreement['points']} resampled points",
                   ""]
+
+        controls = agreement.get("controls") or []
+        if controls:
+            lines += [
+                "### Control: is the agreement real, or distributional?",
+                "",
+                "Two nodes in the same room see similar noise, so similar *distributions*",
+                "are expected whether or not they track a shared signal. The control breaks",
+                "the temporal pairing (time-shift, shuffle) while leaving both distributions",
+                "unchanged. Agreement that survives decorrelation is distributional and",
+                "carries no evidential weight; agreement that collapses is real.",
+                "",
+                "| Pairing | Correlation | MAE (br/min) | Median difference |",
+                "|---------|-------------|--------------|-------------------|",
+            ]
+            for c in controls:
+                lines.append(
+                    f"| {c['pairing']} | {c['corr']:+.3f} | {c['mae']:.2f} | {c['median_diff']:.3f} |"
+                )
+
+            aligned = controls[0]["corr"]
+            decorr = [c["corr"] for c in controls[1:]]
+            worst = max(abs(v) for v in decorr) if decorr else 0.0
+
+            # The verdict follows the measurement. A shared signal requires the
+            # aligned pairing to be POSITIVE and clearly above every
+            # decorrelated control; anything else is stated as unsupported.
+            if aligned > 0 and aligned > max(worst * 2.0, 0.1):
+                verdict = [
+                    f"Aligned correlation is **{aligned:+.3f}**; the strongest decorrelated",
+                    f"control reaches only **{worst:.3f}**. The correlation depends on the true",
+                    "temporal pairing, which indicates a **shared time-varying signal** between",
+                    "the two nodes -- consistent with both observing the same subject over",
+                    "independent propagation paths.",
+                ]
+            elif aligned <= 0:
+                verdict = [
+                    f"Aligned correlation is **{aligned:+.3f}** -- negative. Two nodes observing",
+                    "the same subject would correlate positively, so this recording provides",
+                    "**no evidence of a shared respiratory signal**. The per-window estimates are",
+                    "consistent with band-limited noise rather than respiration.",
+                ]
+            else:
+                verdict = [
+                    f"Aligned correlation is **{aligned:+.3f}**, against a strongest decorrelated",
+                    f"control of **{worst:.3f}**. The margin is too small to distinguish shared",
+                    "signal from distributional similarity, so agreement here is **not** evidence",
+                    "of a real respiratory measurement.",
+                ]
+            lines += [""] + verdict + ["",
+                _median_note(controls),
+                "",
+                (
+                    "This does not establish accuracy. No reference respiration sensor was "
+                    "recorded, so a positive control supports the estimate as a shared "
+                    "measurement, never as a correct one."
+                    if aligned > 0 and aligned > max(worst * 2.0, 0.1)
+                    else
+                    "Accuracy is not assessable either way: no reference respiration sensor "
+                    "was recorded. The control establishes only that these estimates are not "
+                    "supported as a shared measurement."
+                ),
+                "",
+            ]
 
     lines += ["## Limitations", "",
               "- **No ground truth.** No reference respiration sensor was recorded alongside",
