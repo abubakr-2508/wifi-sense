@@ -5,9 +5,10 @@ __pycache__/
 .venv/
 venv/
 
-# Analysis outputs — regenerate with analyze_csi.py
-output/
-output_overnight/
+# Analysis outputs ARE tracked: the figures, CSVs and RESULTS.md are the
+# deliverables of this project, and keeping them in the repository means the
+# results are readable without installing anything or sourcing the recordings.
+# They stay reproducible via `python analyze_csi.py`.
 
 # Recordings are large and belong to their original authors; see README
 *.csi.jsonl
