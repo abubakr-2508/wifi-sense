@@ -351,7 +351,15 @@ def fig_node_agreement(results: dict, out: Path) -> dict:
     t1 = min(max(a["bpm_t"]), max(b["bpm_t"]))
     if t1 <= t0:
         return {}
-    grid = np.linspace(t0, t1, 240)
+
+    # Grid density is not cosmetic: it changes the measured correlation. A
+    # fixed 240 points spans 12.8 s per sample on a 51-minute capture, which
+    # undersamples estimates that update about once a second and depresses the
+    # correlation (+0.235 at 240 points, converging to +0.30 for >=1000).
+    # Sampling at the estimate update rate lands in the converged regime; the
+    # bounds keep short and very long recordings sane.
+    n_grid = int(np.clip(round(t1 - t0), 200, 8000))
+    grid = np.linspace(t0, t1, n_grid)
     ia = np.interp(grid, a["bpm_t"], a["bpm"])
     ib = np.interp(grid, b["bpm_t"], b["bpm"])
 

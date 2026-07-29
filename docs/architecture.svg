@@ -87,7 +87,7 @@
 
   <rect class="box" x="286" y="304" width="180" height="52" rx="7"/>
   <text class="title" x="300" y="324">Welch PSD</text>
-  <text class="sub"   x="300" y="342">band power + Nyquist guard</text>
+  <text class="sub"   x="300" y="342">band power + dominant freq</text>
 
   <!-- ============ DETECTOR ============ -->
   <rect class="band" x="516" y="76" width="212" height="300" rx="10"/>
@@ -164,16 +164,16 @@
 
   <rect class="boxOk"   x="532" y="480" width="200" height="58" rx="7"/>
   <text class="title" x="546" y="500">Aligned pairing</text>
-  <text class="mono"  x="546" y="518">r = +0.301</text>
-  <text class="noteOk" x="546" y="532">shared signal supported</text>
+  <text class="mono"  x="546" y="518">r ≈ +0.30</text>
+  <text class="noteOk" x="546" y="532">stable for grids ≥ 1000</text>
 
   <rect class="boxWarn" x="746" y="480" width="194" height="58" rx="7"/>
   <text class="title" x="760" y="500">Shifted / shuffled</text>
-  <text class="mono"  x="760" y="518">|r| ≤ 0.054</text>
-  <text class="note"  x="760" y="532">collapses → control passes</text>
+  <text class="mono"  x="760" y="518">|r| ≈ 0.15</text>
+  <text class="note"  x="760" y="532">margin ≈ 2× — suggestive</text>
 
   <text class="sub" x="532" y="560">Median agreement is unchanged by shuffling, so it demonstrates nothing.</text>
-  <text class="sub" x="532" y="576">Temporal correlation against decorrelated controls carries the evidence.</text>
+  <text class="sub" x="532" y="576">A 2× margin is suggestive, not conclusive. No ground-truth sensor exists.</text>
 
   <path class="flowL" d="M 716 356 L 736 356 L 736 396"/>
 </svg>
