@@ -521,7 +521,10 @@
 
   function shortReason(reason) {
     if (!reason) return "unsupported at this source";
-    return reason.length > 52 ? reason.slice(0, 49) + "…" : reason;
+    // The reason now sits on its own line and wraps, so it no longer needs
+    // truncating to fit beside the name. Keep a generous cap only as a guard
+    // against a pathologically long string.
+    return reason.length > 160 ? reason.slice(0, 157) + "…" : reason;
   }
 
   /* ---------- polling ---------- */

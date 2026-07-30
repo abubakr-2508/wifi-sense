@@ -137,6 +137,16 @@
     <canvas id="level-chart" height="180"></canvas>
   </section>
 
+  <!-- Subcarriers (CSI only) — sits in row 2 beside the two line charts so the
+       three fill the width; the wide panels below span all columns. -->
+  <section class="card card-chart" id="sub-card" hidden>
+    <div class="card-head">
+      <h2>Subcarrier amplitudes</h2>
+      <span class="hint">per-subcarrier magnitude, current frame</span>
+    </div>
+    <canvas id="sub-chart" height="180"></canvas>
+  </section>
+
   <!-- Waterfall (CSI only) -->
   <section class="card card-wide" id="wf-card" hidden>
     <div class="card-head">
@@ -157,15 +167,6 @@
       </span>
       <span class="wf-meta" id="wf-meta">—</span>
     </div>
-  </section>
-
-  <!-- Subcarriers (CSI only) -->
-  <section class="card card-chart" id="sub-card" hidden>
-    <div class="card-head">
-      <h2>Subcarrier amplitudes</h2>
-      <span class="hint">per-subcarrier magnitude, current frame</span>
-    </div>
-    <canvas id="sub-chart" height="150"></canvas>
   </section>
 
   <!-- Telemetry -->
