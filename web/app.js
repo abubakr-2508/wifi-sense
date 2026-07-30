@@ -599,6 +599,16 @@
     el(id).addEventListener("input", onSlider);
   });
 
+  var THRESHOLD_DEFAULTS = { enter_z: 3.0, exit_z: 1.5, debounce: 2 };
+  el("reset-thresholds").addEventListener("click", function () {
+    el("enter-slider").value = THRESHOLD_DEFAULTS.enter_z;
+    el("exit-slider").value = THRESHOLD_DEFAULTS.exit_z;
+    el("debounce-slider").value = THRESHOLD_DEFAULTS.debounce;
+    applyThresholdValues(THRESHOLD_DEFAULTS);
+    userAdjusting = true; // suppress a poll from overwriting mid-send
+    sendThresholds();
+  });
+
   /* ---------- view switching (Live / Findings) ---------- */
 
   function switchView(view) {

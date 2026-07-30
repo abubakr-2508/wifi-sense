@@ -249,6 +249,11 @@ body {
 .ctrl-note {
   margin: .3rem 0 0; font-size: .74rem; color: var(--text-faint); line-height: 1.5;
 }
+/* Push the reset action to the bottom of the card so the controls fill their
+   column instead of leaving a void beneath the sliders. */
+.card-controls { display: flex; flex-direction: column; }
+.ctrl-actions { margin-top: auto; padding-top: 1rem; }
+.btn-full { width: 100%; padding: .55rem; font-size: .8rem; }
 
 /* ---------- capabilities ---------- */
 
