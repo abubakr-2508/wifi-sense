@@ -50,7 +50,14 @@ Two nodes in the same room see similar noise, so similar *distributions*
 are expected whether or not they track a shared signal. The control breaks
 the temporal pairing (time-shift, shuffle) while leaving both distributions
 unchanged. Agreement that survives decorrelation is distributional and
-carries no evidential weight; agreement that collapses is real.
+carries no evidential weight. Agreement that collapses is pairing-dependent,
+which is necessary for a shared signal but not sufficient to establish one.
+
+The shifts below truncate rather than wrap, so each control is computed on
+fewer samples and over a different span than the aligned pairing; and a shift
+shorter than the decorrelation time of a respiration-*rate* series retains
+shared slow structure, which inflates the control rather than the aligned
+value. This table is therefore descriptive, not a significance test.
 
 | Pairing | Correlation | MAE (br/min) | Median difference |
 |---------|-------------|--------------|-------------------|
@@ -66,7 +73,7 @@ the same subject would correlate positively, so this recording provides
 **no evidence of a shared respiratory signal**. The per-window estimates are
 consistent with band-limited noise rather than respiration.
 
-**The median difference is unchanged by shuffling (4.888 in both rows).** Median agreement is therefore a property of the two distributions and demonstrates nothing about a shared signal -- it must not be reported as validation. Temporal correlation against these controls is the evidence; the median is not.
+**The median difference is unchanged by shuffling (4.888 in both rows).** This is an algebraic identity, not a measurement: a permutation does not change the multiset of values, so any statistic computed from the two marginal distributions alone -- median difference, mean difference, SD ratio -- is invariant under re-pairing by construction. Median agreement therefore carries no information about temporal correspondence. The temporal correlation is the quantity that responds to pairing; the median is not.
 
 Accuracy is not assessable either way: no reference respiration sensor was recorded. The control establishes only that these estimates are not supported as a shared measurement.
 

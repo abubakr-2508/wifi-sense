@@ -398,10 +398,11 @@ def fig_topk(rows, out: Path):
     excess = [r["excess"] for r in rows]
     fig, ax = plt.subplots(1, 2, figsize=(11, 4.2))
     x = np.arange(len(xs))
-    # Shade the excess (aligned above control) -- the genuine shared signal.
+    # Shade the excess (aligned above control): the agreement the control does
+    # not already account for. Not itself proof of a shared signal.
     ax[0].fill_between(x, control, aligned,
                        where=[a > c for a, c in zip(aligned, control)],
-                       color=C_MAIN, alpha=0.12, label="excess (genuine)")
+                       color=C_MAIN, alpha=0.12, label="excess (aligned - control)")
     ax[0].plot(x, aligned, "o-", color=C_MAIN, lw=1.8, label="aligned (node agreement)")
     ax[0].plot(x, control, "s--", color=C_ACC, lw=1.3, label="strongest control")
     ax[0].set_xticks(x)
@@ -471,7 +472,7 @@ def fig_stability(stability, anchor, out: Path):
                     color=C_MAIN, alpha=0.10, label="±1 SD across segments")
     ax.set_xlabel("disjoint segment")
     ax.set_ylabel("excess correlation (aligned − control)")
-    ax.set_title("Segment stability — agreement does not survive segmentation")
+    ax.set_title("Segment stability — excess does not persist within segments")
     ax.set_xticks(segs)
     ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
@@ -492,7 +493,7 @@ def fig_preproc(rows, out: Path):
     ax.set_xticklabels(labels)
     ax.axhline(0, color=C_MUT, lw=0.7)
     ax.set_ylabel("cross-node correlation")
-    ax.set_title("Ablation 3 — preprocessing stages (each earns its place)")
+    ax.set_title("Ablation 3 — preprocessing stages (neither improves this metric)")
     ax.legend(frameon=False, fontsize=8)
     fig.tight_layout()
     fig.savefig(out / "fig_ablation3_preprocessing.png")
@@ -540,7 +541,15 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
         "",
         "The 51-minute recording is used because it is the case with a recoverable",
         "shared signal. The 2-minute mixed-activity recording is the negative case",
-        "(aligned r = -0.157) and offers nothing to optimise.",
+        "(see `output/RESULTS.md`) and offers nothing to optimise.",
+        "",
+        "Two spans appear in this report and they measure different things. The",
+        "ablation reads the first 40,000 single-antenna frames per node, which",
+        "reaches 38.1 minutes into the 51.3-minute recording; frames of other",
+        "antenna geometries are excluded because their amplitude statistics differ",
+        "substantially, and mixing them injects variance from population switching",
+        "rather than from the channel. Where this report says *n-minute series* it",
+        "means the analysed span, not the length of the capture.",
         "",
         "## 1. Subcarrier aggregation (headline)",
         "",
@@ -562,15 +571,39 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
         f"(excess {kb['excess']:+.3f}: aligned {kb['aligned']:+.3f} over "
         f"control {kb['control']:.3f}).",
         "",
-        "The two extremes both fail, and fail in the way the control is designed",
-        "to expose: at K = 1 (single best subcarrier) and at mean-of-all, the",
-        "control correlation is as large as the aligned correlation, so the",
-        "excess collapses toward zero or below -- their apparent agreement is",
-        "distributional, not shared signal. K = 1 is dragged by any subcarrier",
-        "whose spectral peak lands on a subharmonic (the factor-of-two",
-        "disagreement reported earlier); mean-of-all dilutes the respiratory",
-        "component into the majority of subcarriers that carry none. Excess peaks",
-        "in the intermediate range.",
+        "Both extremes are rejected, but only one of them fails the control test,",
+        "and the distinction matters.",
+        "",
+    ]
+
+    _k1 = next((r for r in k_rows if r["value"] == 1), None)
+    _kmean = next((r for r in k_rows if r["value"] == 0), None)
+
+    if _kmean is not None:
+        lines += [
+            f"**Mean-of-all fails it.** Its control ({_kmean['control']:.3f}) is at least",
+            f"as large as its aligned correlation ({_kmean['aligned']:+.3f}), leaving an",
+            f"excess of {_kmean['excess']:+.3f}: the apparent agreement is distributional,",
+            "not shared signal. Averaging every subcarrier dilutes the respiratory",
+            "component into the majority that carry none.",
+            "",
+        ]
+
+    if _k1 is not None:
+        lines += [
+            f"**K = 1 does not fail that way.** Its excess is {_k1['excess']:+.3f} -- positive,",
+            f"and clear of its control ({_k1['control']:.3f} against an aligned",
+            f"{_k1['aligned']:+.3f}). It is rejected on two independent grounds instead:",
+            "it returns the smallest excess of any K in the sweep, and a single",
+            "subcarrier is hostage to whichever spectral peak it happens to land on,",
+            "which is what produced the factor-of-two disagreement between the two",
+            "nodes reported earlier. A median over several subcarriers outvotes that",
+            "failure; one subcarrier cannot.",
+            "",
+        ]
+
+    lines += [
+        "Excess peaks in the intermediate range.",
         "",
         "The spread column is reported for completeness but does **not**",
         "independently identify the best K: it rises monotonically with K, which is",
@@ -687,6 +720,15 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
             "structure: a time-shift inside a short segment still overlaps the trend",
             "it is meant to break.",
             "",
+            "That inflation matters for how this result should be read, and it cuts",
+            "in our own favour. A control that overlaps the trend it is meant to",
+            "break is too high; a control that is too high makes the excess too low;",
+            "and an excess that is too low biases this test *towards* the negative",
+            "reading drawn from it. The honest statement is therefore that per-window",
+            "respiration tracking is **unsupported here**, not that a shared signal",
+            "has been shown to be absent. A circular shift with a guard band measured",
+            "from the autocorrelation would remove the bias and settle which it is.",
+            "",
             "The shuffle control destroys all temporal ordering and therefore cannot",
             "separate these two cases. The segment test can, and it does not support",
             "the respiratory interpretation.",
@@ -707,7 +749,7 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
         f"- Subcarrier aggregation: **top-{'mean' if kb['value']==0 else kb['value']}** median",
         f"- Respiration window: **{wb['value']} s**",
         "- Preprocessing: Hampel retained on signal-quality grounds; explicit",
-        "  detrend dropped as redundant before the band-pass",
+        "  detrend retained but shown to be redundant before the band-pass",
         "- Filter: Butterworth order 3, zero-phase",
         "",
         "The subcarrier-K and window choices are the ones that maximised validated",

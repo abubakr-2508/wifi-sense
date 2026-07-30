@@ -105,8 +105,8 @@ directly. The two datasets tell opposite stories, and that pairing is the point.
 | | 2-min `pretrain` | 51-min `overnight` |
 |---|---|---|
 | Aligned correlation | **−0.109** | **+0.30** |
-| Verdict | no shared signal | positive over the full series… |
-| Segment test | — | **…but negative in 4 of 5 segments** |
+| Verdict | no shared signal | pairing-dependent over the full series… |
+| Segment test | — | **…but the control beats it in 4 of 5 segments** |
 
 Say: *"The same pipeline reaches opposite conclusions on the two recordings,
 which is what you want — it discriminates rather than always agreeing."*
@@ -117,10 +117,11 @@ Answer — and this is the strongest thing you can say:
 > *"No, and I can show you why not. The respiratory band maps exactly onto 6–30
 > breaths per minute, so any noise peak gives a plausible number — plausibility
 > proves nothing. Cross-node agreement over the full 38-minute recording is
-> +0.30 against decorrelated controls near zero, which looks like a real shared
-> signal. But when I split the recording into seven-minute segments and
-> re-measure, four of five segments go negative — the control correlates more
-> strongly than the true pairing. A breath-by-breath measurement would survive
+> +0.30 against a strongest decorrelated control of 0.14, which looks like a real
+> shared signal. But when I split the recording into seven-minute segments and
+> re-measure, the excess goes negative in four of five — the correlation stays
+> positive throughout, but the control correlates more strongly than the true
+> pairing. A breath-by-breath measurement would survive
 > segmentation. This doesn't, so the long-window correlation is more consistent
 > with slow structure common to both nodes than with respiration. I'd need a
 > ground-truth respiration sensor to settle it, and I don't have one."*

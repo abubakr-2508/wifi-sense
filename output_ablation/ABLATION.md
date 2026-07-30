@@ -20,7 +20,15 @@ correlation would, for example, wrongly prefer no preprocessing.
 
 The 51-minute recording is used because it is the case with a recoverable
 shared signal. The 2-minute mixed-activity recording is the negative case
-(aligned r = -0.157) and offers nothing to optimise.
+(see `output/RESULTS.md`) and offers nothing to optimise.
+
+Two spans appear in this report and they measure different things. The
+ablation reads the first 40,000 single-antenna frames per node, which
+reaches 38.1 minutes into the 51.3-minute recording; frames of other
+antenna geometries are excluded because their amplitude statistics differ
+substantially, and mixing them injects variance from population switching
+rather than from the channel. Where this report says *n-minute series* it
+means the analysed span, not the length of the capture.
 
 ## 1. Subcarrier aggregation (headline)
 
@@ -41,15 +49,25 @@ and includes the mean-of-all baseline.
 
 **Best: K = 8** (excess +0.263: aligned +0.374 over control 0.111).
 
-The two extremes both fail, and fail in the way the control is designed
-to expose: at K = 1 (single best subcarrier) and at mean-of-all, the
-control correlation is as large as the aligned correlation, so the
-excess collapses toward zero or below -- their apparent agreement is
-distributional, not shared signal. K = 1 is dragged by any subcarrier
-whose spectral peak lands on a subharmonic (the factor-of-two
-disagreement reported earlier); mean-of-all dilutes the respiratory
-component into the majority of subcarriers that carry none. Excess peaks
-in the intermediate range.
+Both extremes are rejected, but only one of them fails the control test,
+and the distinction matters.
+
+**Mean-of-all fails it.** Its control (0.133) is at least
+as large as its aligned correlation (+0.128), leaving an
+excess of -0.005: the apparent agreement is distributional,
+not shared signal. Averaging every subcarrier dilutes the respiratory
+component into the majority that carry none.
+
+**K = 1 does not fail that way.** Its excess is +0.096 -- positive,
+and clear of its control (0.137 against an aligned
++0.233). It is rejected on two independent grounds instead:
+it returns the smallest excess of any K in the sweep, and a single
+subcarrier is hostage to whichever spectral peak it happens to land on,
+which is what produced the factor-of-two disagreement between the two
+nodes reported earlier. A median over several subcarriers outvotes that
+failure; one subcarrier cannot.
+
+Excess peaks in the intermediate range.
 
 The spread column is reported for completeness but does **not**
 independently identify the best K: it rises monotonically with K, which is
@@ -155,6 +173,15 @@ respiration. Note also that the segment controls are themselves large
 structure: a time-shift inside a short segment still overlaps the trend
 it is meant to break.
 
+That inflation matters for how this result should be read, and it cuts
+in our own favour. A control that overlaps the trend it is meant to
+break is too high; a control that is too high makes the excess too low;
+and an excess that is too low biases this test *towards* the negative
+reading drawn from it. The honest statement is therefore that per-window
+respiration tracking is **unsupported here**, not that a shared signal
+has been shown to be absent. A circular shift with a guard band measured
+from the autocorrelation would remove the bias and settle which it is.
+
 The shuffle control destroys all temporal ordering and therefore cannot
 separate these two cases. The segment test can, and it does not support
 the respiratory interpretation.
@@ -172,7 +199,7 @@ the study produced against its own most attractive result.
 - Subcarrier aggregation: **top-8** median
 - Respiration window: **30 s**
 - Preprocessing: Hampel retained on signal-quality grounds; explicit
-  detrend dropped as redundant before the band-pass
+  detrend retained but shown to be redundant before the band-pass
 - Filter: Butterworth order 3, zero-phase
 
 The subcarrier-K and window choices are the ones that maximised validated

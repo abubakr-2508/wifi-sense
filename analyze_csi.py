@@ -419,16 +419,20 @@ def _median_note(controls: list[dict]) -> str:
     if abs(aligned["median_diff"] - shuffled["median_diff"]) < 1e-6:
         return (
             f"**The median difference is unchanged by shuffling "
-            f"({aligned['median_diff']:.3f} in both rows).** Median agreement is therefore a "
-            "property of the two distributions and demonstrates nothing about a shared "
-            "signal -- it must not be reported as validation. Temporal correlation "
-            "against these controls is the evidence; the median is not."
+            f"({aligned['median_diff']:.3f} in both rows).** This is an algebraic identity, "
+            "not a measurement: a permutation does not change the multiset of values, so "
+            "any statistic computed from the two marginal distributions alone -- median "
+            "difference, mean difference, SD ratio -- is invariant under re-pairing by "
+            "construction. Median agreement therefore carries no information about temporal "
+            "correspondence. The temporal correlation is the quantity that responds to "
+            "pairing; the median is not."
         )
     return (
         f"Median difference is {aligned['median_diff']:.3f} aligned versus "
-        f"{shuffled['median_diff']:.3f} shuffled. Medians are a distributional summary and "
-        "are reported for completeness only; the temporal correlation above carries the "
-        "evidential weight."
+        f"{shuffled['median_diff']:.3f} shuffled. Any statistic of the marginal "
+        "distributions alone is invariant under re-pairing, so medians are reported for "
+        "completeness only; the temporal correlation is the quantity that responds to "
+        "pairing."
     )
 
 
@@ -445,12 +449,21 @@ def agreement_controls(grid: np.ndarray, ia: np.ndarray, ib: np.ndarray,
     The control breaks the temporal pairing -- by time-shifting one series, and
     by shuffling it outright -- while leaving both distributions untouched. Any
     agreement that survives decorrelation is distributional and carries no
-    evidential weight; only agreement that *collapses* under the control
-    indicates a genuine shared time-varying signal.
+    evidential weight; agreement that *collapses* under the control is
+    pairing-dependent, which is necessary for a shared signal but not sufficient
+    to establish one.
 
-    This is what separates a real result from the plausible-looking artefact
-    documented in the README: median agreement is identical under every control
-    (and so proves nothing), while temporal correlation is not.
+    Two limitations, recorded here because they bound what this function can
+    show. The shifts truncate rather than wrap, so every control is computed on
+    fewer samples and over a different span than the aligned pairing; and a
+    shift shorter than the decorrelation time of the input series retains shared
+    slow structure, which inflates the control. A circular shift with a guard
+    band measured from the autocorrelation would fix both, and is named as
+    future work rather than pretended away here.
+
+    The median column exists to make one point: it is identical under every
+    control, because any statistic of the marginals alone is invariant under
+    re-pairing. That is an algebraic fact, not a result.
     """
     out = []
 
@@ -642,7 +655,14 @@ def write_outputs(path: Path, out: Path, ds: dict, sel: dict,
                 "are expected whether or not they track a shared signal. The control breaks",
                 "the temporal pairing (time-shift, shuffle) while leaving both distributions",
                 "unchanged. Agreement that survives decorrelation is distributional and",
-                "carries no evidential weight; agreement that collapses is real.",
+                "carries no evidential weight. Agreement that collapses is pairing-dependent,",
+                "which is necessary for a shared signal but not sufficient to establish one.",
+                "",
+                "The shifts below truncate rather than wrap, so each control is computed on",
+                "fewer samples and over a different span than the aligned pairing; and a shift",
+                "shorter than the decorrelation time of a respiration-*rate* series retains",
+                "shared slow structure, which inflates the control rather than the aligned",
+                "value. This table is therefore descriptive, not a significance test.",
                 "",
                 "| Pairing | Correlation | MAE (br/min) | Median difference |",
                 "|---------|-------------|--------------|-------------------|",
@@ -659,13 +679,25 @@ def write_outputs(path: Path, out: Path, ds: dict, sel: dict,
             # The verdict follows the measurement. A shared signal requires the
             # aligned pairing to be POSITIVE and clearly above every
             # decorrelated control; anything else is stated as unsupported.
+            # Even when it clears that bar the statement stays descriptive: with
+            # a handful of control rows the table cannot reach significance.
             if aligned > 0 and aligned > max(worst * 2.0, 0.1):
+                n_ctrl = len(decorr)
                 verdict = [
                     f"Aligned correlation is **{aligned:+.3f}**; the strongest decorrelated",
-                    f"control reaches only **{worst:.3f}**. The correlation depends on the true",
-                    "temporal pairing, which indicates a **shared time-varying signal** between",
-                    "the two nodes -- consistent with both observing the same subject over",
-                    "independent propagation paths.",
+                    f"control reaches **{worst:.3f}**. The correlation is pairing-dependent --",
+                    "it is not reproduced once the temporal correspondence between the two",
+                    "nodes is broken.",
+                    "",
+                    f"This margin is descriptive, not inferential. With {n_ctrl} decorrelated",
+                    f"rows the finest attainable p-value is 1/{n_ctrl + 1} = "
+                    f"{1.0 / (n_ctrl + 1):.2f}, so no conventional significance threshold is",
+                    "reachable from this table however large the margin looks.",
+                    "",
+                    "Pairing-dependence over the full recording does **not** establish",
+                    "per-window respiration tracking. See the segment-stability test in",
+                    "`ABLATION.md`, which re-measures this on disjoint segments and does not",
+                    "support that interpretation.",
                 ]
             elif aligned <= 0:
                 verdict = [
@@ -686,8 +718,8 @@ def write_outputs(path: Path, out: Path, ds: dict, sel: dict,
                 "",
                 (
                     "This does not establish accuracy. No reference respiration sensor was "
-                    "recorded, so a positive control supports the estimate as a shared "
-                    "measurement, never as a correct one."
+                    "recorded, so nothing here can support the estimate as a correct one -- "
+                    "only as a consistency check between two observers."
                     if aligned > 0 and aligned > max(worst * 2.0, 0.1)
                     else
                     "Accuracy is not assessable either way: no reference respiration sensor "

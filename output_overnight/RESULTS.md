@@ -50,7 +50,14 @@ Two nodes in the same room see similar noise, so similar *distributions*
 are expected whether or not they track a shared signal. The control breaks
 the temporal pairing (time-shift, shuffle) while leaving both distributions
 unchanged. Agreement that survives decorrelation is distributional and
-carries no evidential weight; agreement that collapses is real.
+carries no evidential weight. Agreement that collapses is pairing-dependent,
+which is necessary for a shared signal but not sufficient to establish one.
+
+The shifts below truncate rather than wrap, so each control is computed on
+fewer samples and over a different span than the aligned pairing; and a shift
+shorter than the decorrelation time of a respiration-*rate* series retains
+shared slow structure, which inflates the control rather than the aligned
+value. This table is therefore descriptive, not a significance test.
 
 | Pairing | Correlation | MAE (br/min) | Median difference |
 |---------|-------------|--------------|-------------------|
@@ -62,14 +69,22 @@ carries no evidential weight; agreement that collapses is real.
 | fully shuffled | -0.013 | 4.83 | 0.066 |
 
 Aligned correlation is **+0.302**; the strongest decorrelated
-control reaches only **0.144**. The correlation depends on the true
-temporal pairing, which indicates a **shared time-varying signal** between
-the two nodes -- consistent with both observing the same subject over
-independent propagation paths.
+control reaches **0.144**. The correlation is pairing-dependent --
+it is not reproduced once the temporal correspondence between the two
+nodes is broken.
 
-**The median difference is unchanged by shuffling (0.066 in both rows).** Median agreement is therefore a property of the two distributions and demonstrates nothing about a shared signal -- it must not be reported as validation. Temporal correlation against these controls is the evidence; the median is not.
+This margin is descriptive, not inferential. With 5 decorrelated
+rows the finest attainable p-value is 1/6 = 0.17, so no conventional significance threshold is
+reachable from this table however large the margin looks.
 
-This does not establish accuracy. No reference respiration sensor was recorded, so a positive control supports the estimate as a shared measurement, never as a correct one.
+Pairing-dependence over the full recording does **not** establish
+per-window respiration tracking. See the segment-stability test in
+`ABLATION.md`, which re-measures this on disjoint segments and does not
+support that interpretation.
+
+**The median difference is unchanged by shuffling (0.066 in both rows).** This is an algebraic identity, not a measurement: a permutation does not change the multiset of values, so any statistic computed from the two marginal distributions alone -- median difference, mean difference, SD ratio -- is invariant under re-pairing by construction. Median agreement therefore carries no information about temporal correspondence. The temporal correlation is the quantity that responds to pairing; the median is not.
+
+This does not establish accuracy. No reference respiration sensor was recorded, so nothing here can support the estimate as a correct one -- only as a consistency check between two observers.
 
 ## Limitations
 
