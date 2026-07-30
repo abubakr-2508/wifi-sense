@@ -426,18 +426,63 @@ class MotionDetector:
     def capabilities(self) -> dict:
         """What this configuration can honestly measure.
 
-        Used by the dashboard so the UI never offers a readout the physics does
-        not support at the current sample rate and source type.
+        Three states, not two, because "the physics permits it" and "I have
+        evidence it works" are different claims and conflating them is how a
+        display ends up overstating its own results:
+
+          "validated"   -- resolvable at this sample rate AND supported by
+                           evidence in this project.
+          "unvalidated" -- physically resolvable, but the evidence does not
+                           support it. A number can be computed; it should not
+                           be presented as a measurement.
+          "unavailable" -- not resolvable, or no model exists to produce it.
+
+        Respiration is deliberately `unvalidated` rather than available. The
+        respiratory band is resolvable at 20 Hz and the pipeline does produce a
+        rate, but the ablation study's segment test found cross-node agreement
+        negative in 4 of 5 disjoint segments -- a breath-by-breath measurement
+        would survive segmentation and this does not. Reporting it as a working
+        readout would contradict the project's own findings, so the UI labels it
+        as computed-but-unvalidated and the reason travels with it.
         """
         csi = self.source_kind == "csi"
+        resp_resolvable = csi and nyquist_ok(self.fs, 0.5)
+        card_resolvable = csi and nyquist_ok(self.fs, CARDIAC_BAND_HZ[1])
+
         return {
+            # Booleans retained: they answer "can a value be produced at all",
+            # which is what the estimator gating uses.
             "motion": True,
             "presence": True,
-            "respiration": csi and nyquist_ok(self.fs, 0.5),
-            "cardiac": csi and nyquist_ok(self.fs, CARDIAC_BAND_HZ[1]),
+            "respiration": resp_resolvable,
+            "cardiac": card_resolvable,
             "pose": False,  # needs trained keypoint weights; none are loaded
             "sample_rate_hz": self.fs,
             "source_kind": self.source_kind,
+            # Evidence state, for display.
+            "status": {
+                "motion": "validated",
+                "presence": "validated",
+                "respiration": "unvalidated" if resp_resolvable else "unavailable",
+                "cardiac": "unvalidated" if card_resolvable else "unavailable",
+                "pose": "unavailable",
+            },
+            "why": {
+                "motion": "dispersion vs learned ambient baseline",
+                "presence": "derived from motion evidence",
+                "respiration": (
+                    "band is resolvable, but cross-node agreement was negative in "
+                    "4 of 5 segments — not demonstrated"
+                    if resp_resolvable
+                    else "needs CSI phase and fs > 1 Hz"
+                ),
+                "cardiac": (
+                    "band is resolvable, but never evaluated against any reference"
+                    if card_resolvable
+                    else "needs CSI phase and fs > 4 Hz"
+                ),
+                "pose": "no trained keypoint weights loaded",
+            },
         }
 
     def snapshot(self) -> dict:

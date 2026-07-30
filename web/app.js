@@ -339,7 +339,16 @@
     ring.style.stroke = color;
 
     el("z-value").textContent = r.z_score.toFixed(2) + " σ";
-    el("rssi-value").textContent = r.rssi_dbm.toFixed(1) + " dBm";
+    // Source-aware: for a CSI stream the meaningful level is mean subcarrier
+    // amplitude (arbitrary units), not the packet RSSI field, which for these
+    // recordings is a near-constant placeholder. Only an RSSI source is
+    // genuinely in dBm.
+    if ((caps.source_kind) === "csi") {
+      var lvl = (r.features && r.features.mean_level != null) ? r.features.mean_level : r.rssi_dbm;
+      el("rssi-value").textContent = lvl.toFixed(1) + " (amp)";
+    } else {
+      el("rssi-value").textContent = r.rssi_dbm.toFixed(1) + " dBm";
+    }
 
     var th = s.thresholds || {};
     el("thresholds").textContent =
@@ -354,11 +363,21 @@
     var resp = r.respiration || {};
     var respEl = el("resp-value");
     var w = s.windows || {};
+    var respStatus = (caps.status || {}).respiration;
     if (resp.supported && resp.bpm > 0) {
+      // The value is shown, but never as a validated measurement: the ablation's
+      // segment test found cross-node agreement negative in 4 of 5 segments, so
+      // presenting a bare number here would contradict the project's findings.
       respEl.textContent = resp.bpm.toFixed(1) + " br/min";
-      respEl.style.color = COLORS.idle;
-      respEl.title = "band power ratio " + (resp.confidence * 100).toFixed(1) + "%" +
-                     (s.selected_subcarrier != null ? " · subcarrier " + s.selected_subcarrier : "");
+      if (respStatus === "unvalidated") {
+        respEl.textContent += "  (unvalidated)";
+        respEl.style.color = COLORS.calibrating;
+      } else {
+        respEl.style.color = COLORS.idle;
+      }
+      respEl.title = "computed, not validated — " +
+                     (resp.reason || "") +
+                     "; cross-node agreement did not survive segmentation";
     } else if (caps.respiration && w.respiration_filled < w.respiration_n) {
       var pct = w.respiration_n ? Math.round((w.respiration_filled / w.respiration_n) * 100) : 0;
       respEl.textContent = "filling " + w.respiration_s + "s window (" + pct + "%)";
@@ -389,7 +408,7 @@
       (src.verified === false ? " (unverified)" : "");
 
     // capabilities — the honesty panel
-    renderCaps(caps, r);
+    renderCaps(caps);
 
     // charts
     drawLine(el("z-chart"), s.z_history || [], {
@@ -454,30 +473,45 @@
     el("footer-note").textContent = bits.join("  ·  ");
   }
 
-  function renderCaps(caps, r) {
-    var resp = r.respiration || {};
-    var items = [
-      { k: "Motion detection", ok: !!caps.motion, why: "window dispersion vs ambient" },
-      { k: "Presence (coarse)", ok: !!caps.presence, why: "derived from motion evidence" },
-      { k: "Respiration rate", ok: !!caps.respiration,
-        why: caps.respiration ? "0.1–0.5 Hz band" : shortReason(resp.reason) },
-      { k: "Heart rate", ok: !!caps.cardiac,
-        why: caps.cardiac ? "0.8–2.0 Hz band" : "needs CSI phase & fs > 4 Hz" },
-      { k: "Pose / skeleton", ok: !!caps.pose, why: "no trained keypoint weights loaded" }
+  // Three display states, mirroring detector.capabilities(). "unvalidated" is
+  // distinct from both: the value is computable but the project's own evidence
+  // does not support presenting it as a measurement.
+  var CAP_STATE = {
+    validated:   { cls: "yes",   mark: "✓" },
+    unvalidated: { cls: "warn",  mark: "!" },
+    unavailable: { cls: "no",    mark: "✕" }
+  };
+
+  function renderCaps(caps) {
+    var status = caps.status || {};
+    var why = caps.why || {};
+    var order = [
+      ["motion", "Motion detection"],
+      ["presence", "Presence (coarse)"],
+      ["respiration", "Respiration rate"],
+      ["cardiac", "Heart rate"],
+      ["pose", "Pose / skeleton"]
     ];
 
-    el("caps-list").innerHTML = items.map(function (it) {
-      return '<li class="' + (it.ok ? "yes" : "no") + '">' +
-             '<span class="mark">' + (it.ok ? "✓" : "✕") + "</span>" +
-             "<span>" + it.k + "</span>" +
-             '<span class="why">' + it.why + "</span></li>";
+    el("caps-list").innerHTML = order.map(function (pair) {
+      var key = pair[0];
+      var st = CAP_STATE[status[key]] || CAP_STATE.unavailable;
+      return '<li class="' + st.cls + '">' +
+             '<span class="mark">' + st.mark + "</span>" +
+             "<span>" + pair[1] + "</span>" +
+             '<span class="why">' + shortReason(why[key]) + "</span></li>";
     }).join("");
 
-    el("caps-foot").textContent =
-      caps.source_kind === "rssi"
+    el("caps-foot").innerHTML =
+      (caps.source_kind === "rssi"
         ? "RSSI source at " + caps.sample_rate_hz + " Hz. Link-quality magnitude supports motion and " +
-          "coarse presence only — vital signs require per-subcarrier CSI phase from an ESP32-S3."
-        : "CSI source at " + caps.sample_rate_hz + " Hz with per-subcarrier amplitude and phase.";
+          "coarse presence only — vital signs require per-subcarrier CSI phase."
+        : "CSI source at " + caps.sample_rate_hz + " Hz with per-subcarrier amplitude and phase.") +
+      '<br><span class="legend">' +
+      '<b class="ok">✓</b> validated &nbsp; ' +
+      '<b class="wn">!</b> computable but not demonstrated &nbsp; ' +
+      '<b class="nk">✕</b> not available' +
+      "</span>";
   }
 
   function shortReason(reason) {
@@ -512,6 +546,26 @@
   el("calibrate-btn").addEventListener("click", function () {
     fetch("/api/calibrate", { method: "POST" }).then(poll);
   });
+
+  /* ---------- view switching (Live / Findings) ---------- */
+
+  function switchView(view) {
+    var live = view !== "findings";
+    el("view-live").hidden = !live;
+    el("view-findings").hidden = live;
+    el("tab-live").classList.toggle("active", live);
+    el("tab-findings").classList.toggle("active", !live);
+    // Repaint charts when returning to Live, since a hidden canvas has zero
+    // client size and would have been skipped.
+    if (live) poll();
+  }
+
+  var tabs = document.querySelectorAll(".viewtab");
+  for (var i = 0; i < tabs.length; i++) {
+    tabs[i].addEventListener("click", function () {
+      switchView(this.getAttribute("data-view"));
+    });
+  }
 
   window.addEventListener("resize", function () { /* next poll repaints at new size */ });
 

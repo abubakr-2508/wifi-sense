@@ -58,6 +58,21 @@ body {
 .brand-text h1 { margin: 0; font-size: 1.05rem; letter-spacing: .2px; }
 .brand-text p  { margin: .15rem 0 0; font-size: .78rem; color: var(--text-dim); }
 
+/* view tabs — Live / Findings */
+.viewnav { display: flex; gap: .3rem; margin: 0 auto 0 1.5rem; }
+.viewtab {
+  background: transparent; color: var(--text-dim);
+  border: 1px solid transparent; border-radius: 8px;
+  padding: .4rem .95rem; font-size: .82rem; font-weight: 600; cursor: pointer;
+  font-family: inherit; letter-spacing: .01em; transition: color .15s, background .15s, border-color .15s;
+}
+.viewtab:hover { color: var(--text); background: var(--bg-raised); }
+.viewtab.active {
+  color: var(--text); background: var(--bg-raised);
+  border-color: var(--border);
+}
+.viewtab.active { box-shadow: inset 0 -2px 0 var(--accent); }
+
 .topbar-right { display: flex; align-items: center; gap: .75rem; }
 
 .pill {
@@ -194,11 +209,21 @@ body {
   background: var(--bg-sunken); border: 1px solid var(--border-soft); border-radius: 8px;
 }
 .caps .mark { font-family: var(--mono); font-weight: 700; flex: none; width: 1.1em; }
-.caps .yes .mark { color: var(--idle); }
-.caps .no  .mark { color: var(--motion); }
-.caps .no  { opacity: .78; }
+.caps .yes  .mark { color: var(--idle); }
+.caps .warn .mark { color: var(--calib); }
+.caps .no   .mark { color: var(--motion); }
+.caps .no   { opacity: .78; }
+/* "computable but not demonstrated" is visually distinct from both a working
+   readout and an unavailable one -- the amber left edge marks the distinction
+   at a glance. */
+.caps .warn { border-left: 2px solid var(--calib); }
 .caps .why { margin-left: auto; font-size: .71rem; color: var(--text-faint); text-align: right; }
 .caps-foot { margin: .85rem 0 0; font-size: .74rem; color: var(--text-faint); line-height: 1.5; }
+.caps-foot .legend { display: inline-block; margin-top: .4rem; font-size: .72rem; }
+.caps-foot .legend b { font-family: var(--mono); }
+.caps-foot .legend .ok { color: var(--idle); }
+.caps-foot .legend .wn { color: var(--calib); }
+.caps-foot .legend .nk { color: var(--motion); }
 
 /* ---------- charts ---------- */
 
@@ -243,6 +268,69 @@ canvas { width: 100%; display: block; border-radius: 8px; background: var(--bg-s
 }
 .stat .k { display: block; font-size: .68rem; color: var(--text-faint); letter-spacing: .06em; text-transform: uppercase; }
 .stat .v { display: block; font-family: var(--mono); font-size: .95rem; margin-top: .2rem; }
+
+/* ---------- findings view ---------- */
+
+.findings {
+  max-width: 1100px; margin: 0 auto; padding: 1.5rem 1.5rem 2rem;
+  display: flex; flex-direction: column; gap: 1.1rem;
+}
+.findings[hidden] { display: none; }
+
+.finding-intro h2 {
+  margin: .3rem 0 .5rem; font-size: 1.15rem; color: var(--text);
+}
+.finding-intro p {
+  margin: 0; max-width: 70ch; color: var(--text-dim);
+  font-size: .9rem; line-height: 1.6;
+}
+
+.finding-card {
+  display: grid; grid-template-columns: 1fr 1.25fr; gap: 1.4rem; align-items: center;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.3rem 1.4rem;
+}
+.finding-card--text { grid-template-columns: 1fr; }
+@media (max-width: 760px) { .finding-card { grid-template-columns: 1fr; } }
+
+.finding-text h3 {
+  margin: .55rem 0 .5rem; font-size: 1.02rem; color: var(--text);
+  font-weight: 650;
+}
+.finding-text p {
+  margin: 0; color: var(--text-dim); font-size: .875rem; line-height: 1.62;
+}
+.finding-text em { color: var(--text); font-style: italic; }
+.finding-text strong { color: var(--text); font-weight: 650; }
+.finding-text code {
+  font-family: var(--mono); font-size: .82em;
+  background: var(--bg-sunken); padding: .05rem .3rem; border-radius: 4px;
+}
+
+.finding-tag {
+  display: inline-block; font-size: .68rem; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  padding: .22rem .55rem; border-radius: 999px;
+}
+.tag-good    { color: var(--idle);   background: rgba(53, 211, 154, .14); }
+.tag-bad     { color: var(--motion); background: rgba(255, 107, 74, .14); }
+.tag-neutral { color: var(--calib);  background: rgba(240, 180, 41, .14); }
+
+.finding-fig { margin: 0; }
+.finding-fig img {
+  width: 100%; height: auto; display: block; border-radius: 10px;
+  border: 1px solid var(--border-soft); background: #fff;
+}
+
+.finding-foot {
+  border-top: 1px solid var(--border-soft); padding-top: 1rem; margin-top: .3rem;
+}
+.finding-foot p {
+  margin: 0; font-size: .78rem; color: var(--text-faint); line-height: 1.6;
+}
+.finding-foot code {
+  font-family: var(--mono); font-size: .9em; color: var(--text-dim);
+}
 
 /* ---------- footer ---------- */
 
