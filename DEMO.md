@@ -104,7 +104,7 @@ directly. The two datasets tell opposite stories, and that pairing is the point.
 
 | | 2-min `pretrain` | 51-min `overnight` |
 |---|---|---|
-| Aligned correlation | **−0.157** | **+0.30** |
+| Aligned correlation | **−0.109** | **+0.30** |
 | Verdict | no shared signal | positive over the full series… |
 | Segment test | — | **…but negative in 4 of 5 segments** |
 

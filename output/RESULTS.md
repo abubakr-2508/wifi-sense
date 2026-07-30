@@ -38,11 +38,11 @@ subject over independent propagation paths, so agreement between their
 estimates is evidence the measurement reflects the subject rather than a
 path-specific artefact.
 
-- Pearson correlation: **-0.157**
-- Mean absolute difference: **5.00 br/min**
-- Bias: +4.36 br/min
-- 95% limits of agreement: ±8.72 br/min
-- Compared over 240 resampled points
+- Pearson correlation: **-0.109**
+- Mean absolute difference: **4.88 br/min**
+- Bias: +4.32 br/min
+- 95% limits of agreement: ±8.39 br/min
+- Compared over 200 resampled points
 
 ### Control: is the agreement real, or distributional?
 
@@ -54,14 +54,14 @@ carries no evidential weight; agreement that collapses is real.
 
 | Pairing | Correlation | MAE (br/min) | Median difference |
 |---------|-------------|--------------|-------------------|
-| aligned (true pairing) | -0.157 | 5.00 | 4.888 |
-| shifted +8s | -0.134 | 4.93 | 2.604 |
-| shifted +17s | +0.185 | 4.65 | 4.329 |
-| shifted +33s | -0.072 | 5.27 | 4.952 |
-| shifted +50s | -0.193 | 5.03 | 2.668 |
-| fully shuffled | -0.079 | 5.03 | 4.888 |
+| aligned (true pairing) | -0.109 | 4.88 | 4.888 |
+| shifted +8s | -0.147 | 4.86 | 2.604 |
+| shifted +17s | +0.124 | 4.67 | 4.804 |
+| shifted +33s | -0.016 | 5.19 | 4.952 |
+| shifted +50s | -0.193 | 5.01 | 2.668 |
+| fully shuffled | -0.054 | 4.85 | 4.888 |
 
-Aligned correlation is **-0.157** -- negative. Two nodes observing
+Aligned correlation is **-0.109** -- negative. Two nodes observing
 the same subject would correlate positively, so this recording provides
 **no evidence of a shared respiratory signal**. The per-window estimates are
 consistent with band-limited noise rather than respiration.

@@ -142,7 +142,7 @@ SD 4.53 in 64-value frames but SD 0.97 in 128-value frames. Mixing them
 injected variance from population switching rather than from the room, and both
 nodes were reading the same artefact.
 
-With frame geometries separated, the nodes **anti-correlate** (r = −0.157).
+With frame geometries separated, the nodes **anti-correlate** (r = −0.109).
 
 **Conclusion: plausibility is not validation. Agreement between independent
 observers is.** The pipeline reports respiration only where cross-node
