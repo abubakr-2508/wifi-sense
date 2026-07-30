@@ -205,8 +205,29 @@
 
   <section class="finding-card">
     <div class="finding-text">
+      <span class="finding-tag tag-good">Detection, quantified</span>
+      <h3>3 · How good is the motion detection?</h3>
+      <p>
+        The part that works — motion/presence detection — is characterised
+        against a controlled stimulus: real quiet CSI with a motion-like
+        perturbation injected at a known signal-to-noise ratio. The detector
+        reaches <strong>AUC 0.94 at SNR 1 and 1.00 by SNR 2</strong>, needs
+        motion ≈1.8× the quiet level to fire reliably, and false-alarms on
+        genuine quiet windows only <strong>0.5%</strong> of the time. On real
+        data it fires on 36% of the labelled moving-person recording versus 9%
+        of the quiet one. Honest scope: this is a sensitivity characterisation,
+        not field accuracy — that needs a ground-truth sensor.
+      </p>
+    </div>
+    <figure class="finding-fig">
+      <img src="/static/figures/motion_roc.png" alt="Motion detector ROC by injected SNR">
+    </figure>
+  </section>
+
+  <section class="finding-card">
+    <div class="finding-text">
       <span class="finding-tag tag-good">Discrimination</span>
-      <h3>3 · The pipeline discriminates</h3>
+      <h3>4 · The pipeline discriminates</h3>
       <p>
         On a two-minute "mixed-activity" recording the same pipeline returns
         cross-node agreement of −0.157 — correctly finding <em>no</em> shared
@@ -223,7 +244,7 @@
   <section class="finding-card">
     <div class="finding-text">
       <span class="finding-tag tag-neutral">Method, negative</span>
-      <h3>4 · Phase does not help here</h3>
+      <h3>5 · Phase does not help here</h3>
       <p>
         In theory breathing lives in signal <em>phase</em>. But raw ESP32
         phase is corrupted by hardware offsets, and after the standard
@@ -242,7 +263,7 @@
   <section class="finding-card finding-card--text">
     <div class="finding-text">
       <span class="finding-tag tag-neutral">Hardware, negative</span>
-      <h3>5 · Why dedicated hardware is required</h3>
+      <h3>6 · Why dedicated hardware is required</h3>
       <p>
         Commodity WiFi cannot do this. The laptop's own adapter (MediaTek
         MT7922) reports a frozen signal strength — 99 samples over 30 s via
