@@ -86,20 +86,36 @@ directly. The two datasets tell opposite stories, and that pairing is the point.
 
 | | 2-min `pretrain` | 51-min `overnight` |
 |---|---|---|
-| Aligned correlation | **−0.157** | **≈ +0.30** |
-| Verdict | no shared signal | ~2× controls — suggestive |
+| Aligned correlation | **−0.157** | **+0.30** |
+| Verdict | no shared signal | positive over the full series… |
+| Segment test | — | **…but negative in 4 of 5 segments** |
 
 Say: *"The same pipeline reaches opposite conclusions on the two recordings,
 which is what you want — it discriminates rather than always agreeing."*
 
 **Be ready for the obvious question — "so does it measure breathing?"**
-Answer: *"Not provably. The respiratory band maps exactly onto 6–30 breaths per
-minute, so any noise peak yields a plausible number. Correlation between two
-independent nodes is about twice the decorrelated controls — suggestive of a
-shared signal, but with no ground-truth sensor I can't claim accuracy."*
+Answer — and this is the strongest thing you can say:
 
-That answer is stronger than a confident number. It shows you know what your
-evidence supports.
+> *"No, and I can show you why not. The respiratory band maps exactly onto 6–30
+> breaths per minute, so any noise peak gives a plausible number — plausibility
+> proves nothing. Cross-node agreement over the full 38-minute recording is
+> +0.30 against decorrelated controls near zero, which looks like a real shared
+> signal. But when I split the recording into seven-minute segments and
+> re-measure, four of five segments go negative — the control correlates more
+> strongly than the true pairing. A breath-by-breath measurement would survive
+> segmentation. This doesn't, so the long-window correlation is more consistent
+> with slow structure common to both nodes than with respiration. I'd need a
+> ground-truth respiration sensor to settle it, and I don't have one."*
+
+**Why this is your best answer, not your weakest:** you built a result, then
+built the test that broke it, and reported both. That is the difference between
+an engineer and someone tuning numbers until they look good. Show
+`output_ablation/fig_ablation4_stability.png` while saying it — the full-recording
+line sitting above five near-zero segments makes the point in one glance.
+
+If asked *"so what DOES work?"*: presence and motion detection, and the
+methodological findings — the subcarrier-K result, the phase investigation, and
+the MT7922 negative result.
 
 ---
 
