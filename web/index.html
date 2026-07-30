@@ -93,6 +93,33 @@
     <p class="caps-foot" id="caps-foot"></p>
   </section>
 
+  <!-- Live detection controls -->
+  <section class="card card-controls">
+    <div class="card-head">
+      <h2>Detection controls</h2>
+      <span class="hint">adjust sensitivity live</span>
+    </div>
+    <div class="ctrl">
+      <label for="enter-slider">Enter threshold
+        <output id="enter-out">3.0</output><span class="ctrl-unit">σ</span></label>
+      <input type="range" id="enter-slider" min="0.5" max="8" step="0.1" value="3">
+    </div>
+    <div class="ctrl">
+      <label for="exit-slider">Exit threshold
+        <output id="exit-out">1.5</output><span class="ctrl-unit">σ</span></label>
+      <input type="range" id="exit-slider" min="0.2" max="7.5" step="0.1" value="1.5">
+    </div>
+    <div class="ctrl">
+      <label for="debounce-slider">Debounce
+        <output id="debounce-out">2</output><span class="ctrl-unit">windows</span></label>
+      <input type="range" id="debounce-slider" min="1" max="10" step="1" value="2">
+    </div>
+    <p class="ctrl-note" id="ctrl-note">
+      Lower the enter threshold to make detection more sensitive. The gap
+      between enter and exit is the hysteresis that stops the state chattering.
+    </p>
+  </section>
+
   <!-- Charts -->
   <section class="card card-chart">
     <div class="card-head">

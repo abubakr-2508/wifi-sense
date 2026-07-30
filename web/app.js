@@ -353,6 +353,11 @@
     var th = s.thresholds || {};
     el("thresholds").textContent =
       (th.enter_z != null ? th.enter_z : "—") + " / " + (th.exit_z != null ? th.exit_z : "—") + " σ";
+    // Keep the sliders in sync with the detector's actual thresholds, except
+    // while the user is dragging (so a poll mid-drag doesn't yank the handle).
+    if (!userAdjusting && th.enter_z != null) {
+      applyThresholdValues({ enter_z: th.enter_z, exit_z: th.exit_z, debounce: th.debounce });
+    }
 
     var bl = s.baseline || {};
     el("baseline-value").textContent =
@@ -545,6 +550,50 @@
 
   el("calibrate-btn").addEventListener("click", function () {
     fetch("/api/calibrate", { method: "POST" }).then(poll);
+  });
+
+  /* ---------- live threshold controls ---------- */
+
+  var thresholdTimer = null;
+  var userAdjusting = false; // suppress server->slider sync while dragging
+
+  function sendThresholds() {
+    var payload = {
+      enter_z: parseFloat(el("enter-slider").value),
+      exit_z: parseFloat(el("exit-slider").value),
+      debounce: parseInt(el("debounce-slider").value, 10)
+    };
+    fetch("/api/thresholds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); })
+      .then(function (res) {
+        // The server clamps and enforces enter > exit; reflect what it applied.
+        if (res && res.thresholds) applyThresholdValues(res.thresholds);
+        userAdjusting = false;
+      })
+      .catch(function () { userAdjusting = false; });
+  }
+
+  function applyThresholdValues(t) {
+    if (t.enter_z != null) { el("enter-slider").value = t.enter_z; el("enter-out").textContent = t.enter_z.toFixed(1); }
+    if (t.exit_z != null) { el("exit-slider").value = t.exit_z; el("exit-out").textContent = t.exit_z.toFixed(1); }
+    if (t.debounce != null) { el("debounce-slider").value = t.debounce; el("debounce-out").textContent = t.debounce; }
+  }
+
+  function onSlider() {
+    // Update the readouts immediately; debounce the network call.
+    el("enter-out").textContent = parseFloat(el("enter-slider").value).toFixed(1);
+    el("exit-out").textContent = parseFloat(el("exit-slider").value).toFixed(1);
+    el("debounce-out").textContent = el("debounce-slider").value;
+    userAdjusting = true;
+    if (thresholdTimer) clearTimeout(thresholdTimer);
+    thresholdTimer = setTimeout(sendThresholds, 180);
+  }
+
+  ["enter-slider", "exit-slider", "debounce-slider"].forEach(function (id) {
+    el(id).addEventListener("input", onSlider);
   });
 
   /* ---------- view switching (Live / Findings) ---------- */

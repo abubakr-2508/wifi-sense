@@ -185,6 +185,31 @@ class MotionDetector:
         self._pending = 0
         self._pending_state = None
 
+    def set_thresholds(self, enter_z=None, exit_z=None, debounce=None) -> dict:
+        """Live-adjust the detection thresholds. Safe to call mid-stream.
+
+        Only the decision thresholds are adjustable at runtime, deliberately.
+        They are read fresh on every window (see `_target_state`), so changing
+        them takes effect immediately without touching the buffers or the
+        learned baseline. Window length and top-K are NOT adjustable live -- they
+        resize buffers and would discard the calibration -- so they remain
+        launch-time flags, and the ablation study covers their effect instead.
+
+        Values are validated and the hysteresis invariant (enter > exit) is
+        enforced, so no combination the UI can send leaves the detector in an
+        inconsistent state.
+        """
+        if enter_z is not None:
+            self.enter_z = float(np.clip(enter_z, 0.5, 8.0))
+        if exit_z is not None:
+            self.exit_z = float(np.clip(exit_z, 0.2, 7.5))
+        if debounce is not None:
+            self.debounce = int(np.clip(debounce, 1, 10))
+        # Enforce enter > exit; if the user crosses them, nudge exit below enter.
+        if self.exit_z >= self.enter_z:
+            self.exit_z = max(0.2, self.enter_z - 0.5)
+        return {"enter_z": self.enter_z, "exit_z": self.exit_z, "debounce": self.debounce}
+
     @property
     def calibration_progress(self) -> float:
         if self.baseline.complete:
@@ -493,7 +518,8 @@ class MotionDetector:
             "capabilities": self.capabilities(),
             "z_history": [round(v, 3) for v in self.history],
             "level_history": [round(v, 2) for v in self.level_history],
-            "thresholds": {"enter_z": self.enter_z, "exit_z": self.exit_z},
+            "thresholds": {"enter_z": self.enter_z, "exit_z": self.exit_z,
+                           "debounce": self.debounce},
             "selected_subcarrier": self.selected_subcarrier,
             "candidate_subcarriers": self.candidate_subcarriers,
             "respiration_spread": round(self.respiration_spread, 3),

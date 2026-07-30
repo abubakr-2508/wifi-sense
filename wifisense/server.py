@@ -240,11 +240,31 @@ def make_handler(service: SensingService):
             else:
                 self._send_json({"error": "not found"}, 404)
 
+        def _read_json_body(self) -> dict:
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+            except (TypeError, ValueError):
+                length = 0
+            if length <= 0 or length > 4096:  # thresholds payloads are tiny
+                return {}
+            try:
+                return json.loads(self.rfile.read(length).decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                return {}
+
         def do_POST(self):
             route = self.path.split("?")[0]
             if route == "/api/calibrate":
                 service.detector.reset_calibration()
                 self._send_json({"ok": True, "state": State.CALIBRATING.value})
+            elif route == "/api/thresholds":
+                body = self._read_json_body()
+                applied = service.detector.set_thresholds(
+                    enter_z=body.get("enter_z"),
+                    exit_z=body.get("exit_z"),
+                    debounce=body.get("debounce"),
+                )
+                self._send_json({"ok": True, "thresholds": applied})
             else:
                 self._send_json({"error": "not found"}, 404)
 
