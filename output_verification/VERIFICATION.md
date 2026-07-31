@@ -63,40 +63,88 @@ See `fig_v2_variance_vs_amplitude.png`.
 
 ## 3. What can the respiration estimator actually express?
 
-The estimator picks the strongest Welch bin inside 0.1-0.5 Hz. That makes
-its output discrete, and the grid is coarse relative to the range it has
-to cover.
+Respiration is the median of K = 8 per-subcarrier estimates, and each of
+those is the strongest Welch bin inside 0.1-0.5 Hz. The output is therefore
+discrete. It is also finer-grained than it looks, for a reason worth
+stating: a median over an EVEN number of values averages the two central
+ones, so whenever those fall on adjacent bins the result lands exactly
+halfway between them. The observed grid is the true Welch grid plus its
+midpoints. Only the even-indexed values are frequencies the estimator can
+resolve; the rest are averaging artefacts. An odd K would remove them.
 
-- **Node 1**: 29585 windows taking **9 distinct values**, spaced 2.271 bpm apart. Three values account for 79.0% of the output.
-  Values: 9.09, 11.36, 13.63, 15.90, 18.17, 20.44, 22.71, 24.99, 27.26
-- **Node 2**: 29787 windows taking **9 distinct values**, spaced 2.283 bpm apart. Three values account for 75.3% of the output.
-  Values: 9.13, 11.41, 13.70, 15.98, 18.26, 20.54, 22.83, 25.11, 27.39
+- **Node 1**: 29585 windows taking **9 distinct values**, apparently spaced 2.271 bpm apart, but resting on only **5 real bins** at 4.543 bpm. Three values hold 79.0% of the output.
+  Resolvable: 9.09, 13.63, 18.17, 22.71, 27.26
+  Median artefacts: 11.36, 15.90, 20.44, 24.99
+- **Node 2**: 29787 windows taking **9 distinct values**, apparently spaced 2.283 bpm apart, but resting on only **5 real bins** at 4.566 bpm. Three values hold 75.3% of the output.
+  Resolvable: 9.13, 13.70, 18.26, 22.83, 27.39
+  Median artefacts: 11.41, 15.98, 20.54, 25.11
 
-Two of those values stand in an exact 2:1 ratio, which is the signature of
-an octave ambiguity rather than of two independent measurements disagreeing.
+Two of these values stand in an exact 2:1 ratio. That is **not** evidence
+of an octave ambiguity, and an earlier draft of this file wrongly said it
+was: a uniform grid contains 2:1 index pairs by construction, so the
+exactness of the ratio carries no information about the signal. What does
+need explaining is the *bimodality* -- two non-adjacent values holding
+roughly half the mass -- and the contingency table below is what
+distinguishes the candidate explanations.
 
-Because the output is discrete, agreement between the nodes has a floor
+Because the output is discrete, agreement between the nodes carries a floor
 that owes nothing to physiology: two independent estimators restricted to
-the same handful of bins will coincide some of the time by construction.
-Cohen's kappa corrects for exactly that.
+the same handful of bins coincide some of the time by construction. Kappa
+corrects for that.
 
 | Quantity | Value |
 |---|---|
 | Windows where both nodes reported | 28904 |
 | Exact agreement | 33.4% |
 | Chance floor from the bin structure | **21.6%** |
-| **Cohen's kappa** | **+0.151** |
+| Cohen's kappa, unweighted | +0.151 |
+| Cohen's kappa, linear weights | +0.248 |
+| **Cohen's kappa, quadratic weights** | **+0.302** |
 | Pearson r on the same series | +0.303 |
 
-The Pearson value reproduces the correlation reported in `RESULTS.md`, so
-this is the same comparison seen two ways. On the conventional
-interpretation a kappa of this size is *slight* agreement. The correlation
-and the chance-corrected statistic disagree about how much the cross-node
-result is worth, and the chance-corrected one is the appropriate measure
-for a discrete output.
+The Pearson value reproduces the correlation in `RESULTS.md`, so this is
+the same comparison seen two ways.
 
-This does not replace the segment-stability test in `ABLATION.md`, which is
-direct empirical evidence and stands on its own. It explains a mechanism by
-which the apparent agreement was possible.
+The bins are ORDERED, so unweighted kappa is the wrong variant on its own --
+it treats a one-bin miss and a four-bin miss as identical failures. The
+quadratic-weighted figure is the appropriate headline; note that it is
+equivalent to the intraclass correlation. All three are given because the
+gap between them measures how much of the disagreement is large-magnitude
+rather than adjacent-bin.
+
+**Two caveats, both of which apply here.** The conventional interpretive
+bands for kappa are convention rather than derived result -- their authors
+offered no evidence for them -- so no verbal label is attached to these
+numbers. And kappa is known to misbehave when the marginal distributions
+are unbalanced, which is exactly this case: three of the nine values hold
+three quarters of the mass. The raw agreement and the chance floor are
+given above so the coefficient can be checked against its inputs.
+
+### What the contingency table says
+
+- Mass on the diagonal or its immediate neighbours: **50.8%**
+- Share of the OFF-diagonal mass in cells where the bin indices stand in a
+  2:1 ratio: **9.7%**
+- Largest single row / column share: 29.9% / 31.0%
+- Windows where both nodes changed bin at once: 0.2%,
+  against 0.1% if the two changed independently
+  (phi = +0.020)
+
+Mass concentrated near the diagonal indicates coarse quantisation of a
+single underlying distribution; mass in the 2:1 cells would indicate octave
+confusion; mass concentrated in one row or column would indicate one node
+locking onto something non-respiratory. Synchronised changes would suggest
+a property of the signal, independent ones noise-driven peak selection.
+See `fig_v4_confusion.png`, where the 2:1 cells are outlined.
+
+**A limitation not addressed here.** Parabolic interpolation of the
+periodogram peak would give sub-bin resolution and remove the need for a
+categorical statistic altogether. It is not implemented: doing so would
+change every respiration number in this report, and the pipeline is frozen.
+It is the first thing to try if this work is continued.
+
+None of this replaces the segment-stability test in `ABLATION.md`, which is
+direct empirical evidence and stands on its own. This section describes a
+mechanism by which the apparent agreement was possible.
 
 See `fig_v3_estimator_bins.png`.

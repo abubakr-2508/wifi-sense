@@ -146,6 +146,20 @@ def quantisation(csv_path: Path):
             "top3_share": 100.0 * sum(sorted(c.values(), reverse=True)[:3]) / len(series),
         }
 
+    # Which of the observed values are real Welch bins, and which are artefacts?
+    # Respiration is the median of K = 8 per-subcarrier estimates. Each estimate
+    # is quantised to the Welch grid, but a median over an EVEN count averages
+    # the two central values, so two adjacent bins produce a point exactly
+    # halfway between them. The output grid is therefore the true grid plus its
+    # midpoints, and only the even-indexed values are frequencies the estimator
+    # can actually resolve.
+    for n, s in stats.items():
+        idx = [int(round(v / s["spacing"])) for v in s["values"]]
+        s["indices"] = idx
+        s["real_bins"] = [v for v, i in zip(s["values"], idx) if i % 2 == 0]
+        s["midpoints"] = [v for v, i in zip(s["values"], idx) if i % 2 == 1]
+        s["true_spacing"] = s["spacing"] * 2
+
     a, b = [by[k] for k in sorted(by)][:2]
     common = sorted(set(a) & set(b))
     A = np.array([a[k] for k in common])
@@ -154,12 +168,55 @@ def quantisation(csv_path: Path):
     ia = np.rint(A / stats[sorted(by)[0]]["spacing"]).astype(int)
     ib = np.rint(B / stats[sorted(by)[1]]["spacing"]).astype(int)
     n = ia.size
-    po = float((ia == ib).mean())
-    ca, cb = Counter(ia.tolist()), Counter(ib.tolist())
-    pe = sum((ca[l] / n) * (cb[l] / n) for l in set(ca) | set(cb))
-    kappa = (po - pe) / (1 - pe) if pe < 1 else float("nan")
-    return {"per_node": stats, "windows": n, "po": po, "pe": pe, "kappa": kappa,
-            "pearson": float(np.corrcoef(A, B)[0, 1])}
+
+    labels = sorted(set(ia.tolist()) | set(ib.tolist()))
+    pos = {l: i for i, l in enumerate(labels)}
+    K = len(labels)
+    O = np.zeros((K, K))
+    for x, y in zip(ia, ib):
+        O[pos[x], pos[y]] += 1
+    O /= O.sum()
+    row, col = O.sum(axis=1), O.sum(axis=0)
+    E = np.outer(row, col)
+
+    I, J = np.meshgrid(np.arange(K), np.arange(K), indexing="ij")
+
+    def weighted(w):
+        """Cohen's weighted kappa for a disagreement-weight matrix."""
+        den = float((w * E).sum())
+        return 1.0 - float((w * O).sum()) / den if den > 0 else float("nan")
+
+    kappa = weighted((I != J).astype(float))          # unweighted
+    k_lin = weighted(np.abs(I - J) / max(K - 1, 1))    # linear
+    k_quad = weighted(((I - J) / max(K - 1, 1)) ** 2)  # quadratic == ICC
+
+    # Diagnostics that separate the competing explanations for the bimodality.
+    near = float(O[np.abs(I - J) <= 1].sum())
+    ratio2 = 0.0
+    for x in range(K):
+        for y in range(K):
+            if x == y:
+                continue
+            lo, hi = sorted((labels[x], labels[y]))
+            if lo > 0 and hi == 2 * lo:
+                ratio2 += O[x, y]
+    off = float(O.sum() - np.trace(O))
+
+    # Do the nodes change bin at the same moments? Synchronised changes point to
+    # a property of the signal; independent ones to noise-driven peak selection.
+    ca_, cb_ = np.diff(ia) != 0, np.diff(ib) != 0
+    both = float((ca_ & cb_).mean())
+    indep = float(ca_.mean() * cb_.mean())
+    phi = float(np.corrcoef(ca_.astype(float), cb_.astype(float))[0, 1])
+
+    return {"per_node": stats, "windows": n,
+            "po": float((ia == ib).mean()), "pe": float(E.trace()),
+            "kappa": kappa, "kappa_linear": k_lin, "kappa_quadratic": k_quad,
+            "pearson": float(np.corrcoef(A, B)[0, 1]),
+            "labels": labels, "table": O,
+            "near_diagonal": near, "ratio2_of_off": ratio2 / off if off > 0 else 0.0,
+            "max_row": float(row.max()), "max_col": float(col.max()),
+            "flip_both": both, "flip_independent": indep, "flip_phi": phi}
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +281,31 @@ def fig_bins(q, out: Path):
 
 # ---------------------------------------------------------------------------
 
+def fig_confusion(q, out: Path):
+    if not q:
+        return
+    fig, ax = plt.subplots(figsize=(5.6, 4.8))
+    lab = q["labels"]
+    im = ax.imshow(q["table"], cmap="viridis", origin="lower")
+    ax.set_xticks(range(len(lab))); ax.set_xticklabels(lab, fontsize=7)
+    ax.set_yticks(range(len(lab))); ax.set_yticklabels(lab, fontsize=7)
+    ax.set_xlabel("node 2 bin index"); ax.set_ylabel("node 1 bin index")
+    ax.set_title("Where the two nodes land, window by window", fontsize=10)
+    # Mark the cells an octave error would populate.
+    for x, lx in enumerate(lab):
+        for y, ly in enumerate(lab):
+            if lx > 0 and ly == 2 * lx:
+                ax.add_patch(plt.Rectangle((y - .5, x - .5), 1, 1, fill=False,
+                                           ec=C_ACC, lw=1.4))
+            if ly > 0 and lx == 2 * ly:
+                ax.add_patch(plt.Rectangle((y - .5, x - .5), 1, 1, fill=False,
+                                           ec=C_ACC, lw=1.4))
+    fig.colorbar(im, ax=ax, label="fraction of windows")
+    fig.tight_layout()
+    fig.savefig(out / "fig_v4_confusion.png", dpi=140)
+    plt.close(fig)
+
+
 def main():
     p = argparse.ArgumentParser(description="Verification study")
     p.add_argument("--dir", required=True, help="directory of .csi.jsonl recordings")
@@ -254,6 +336,7 @@ def main():
     fig_profile(res, out)
     fig_fade(res, out)
     fig_bins(q, out)
+    fig_confusion(q, out)
 
     write_report(out / "VERIFICATION.md", src, res, q)
     print(f"\ndone -> {out.resolve()}")
@@ -315,37 +398,78 @@ def write_report(path: Path, src: Path, res: dict, q):
     if q:
         n1 = q["per_node"][sorted(q["per_node"])[0]]
         L += ["## 3. What can the respiration estimator actually express?", "",
-              "The estimator picks the strongest Welch bin inside 0.1-0.5 Hz. That makes",
-              "its output discrete, and the grid is coarse relative to the range it has",
-              "to cover.", ""]
+              "Respiration is the median of K = 8 per-subcarrier estimates, and each of",
+              "those is the strongest Welch bin inside 0.1-0.5 Hz. The output is therefore",
+              "discrete. It is also finer-grained than it looks, for a reason worth",
+              "stating: a median over an EVEN number of values averages the two central",
+              "ones, so whenever those fall on adjacent bins the result lands exactly",
+              "halfway between them. The observed grid is the true Welch grid plus its",
+              "midpoints. Only the even-indexed values are frequencies the estimator can",
+              "resolve; the rest are averaging artefacts. An odd K would remove them.", ""]
         for n, s in sorted(q["per_node"].items()):
             L += [f"- **Node {n}**: {s['n']} windows taking **{s['distinct']} distinct "
-                  f"values**, spaced {s['spacing']:.3f} bpm apart. Three values account "
-                  f"for {s['top3_share']:.1f}% of the output.",
-                  f"  Values: {', '.join(f'{v:.2f}' for v in s['values'])}"]
+                  f"values**, apparently spaced {s['spacing']:.3f} bpm apart, but resting "
+                  f"on only **{len(s['real_bins'])} real bins** at {s['true_spacing']:.3f} "
+                  f"bpm. Three values hold {s['top3_share']:.1f}% of the output.",
+                  f"  Resolvable: {', '.join(f'{v:.2f}' for v in s['real_bins'])}",
+                  f"  Median artefacts: {', '.join(f'{v:.2f}' for v in s['midpoints'])}"]
         L += ["",
-              "Two of those values stand in an exact 2:1 ratio, which is the signature of",
-              "an octave ambiguity rather than of two independent measurements disagreeing.",
-              "",
-              "Because the output is discrete, agreement between the nodes has a floor",
+              "Two of these values stand in an exact 2:1 ratio. That is **not** evidence",
+              "of an octave ambiguity, and an earlier draft of this file wrongly said it",
+              "was: a uniform grid contains 2:1 index pairs by construction, so the",
+              "exactness of the ratio carries no information about the signal. What does",
+              "need explaining is the *bimodality* -- two non-adjacent values holding",
+              "roughly half the mass -- and the contingency table below is what",
+              "distinguishes the candidate explanations.", "",
+              "Because the output is discrete, agreement between the nodes carries a floor",
               "that owes nothing to physiology: two independent estimators restricted to",
-              "the same handful of bins will coincide some of the time by construction.",
-              "Cohen's kappa corrects for exactly that.", "",
-              f"| Quantity | Value |", "|---|---|",
+              "the same handful of bins coincide some of the time by construction. Kappa",
+              "corrects for that.", "",
+              "| Quantity | Value |", "|---|---|",
               f"| Windows where both nodes reported | {q['windows']} |",
               f"| Exact agreement | {100*q['po']:.1f}% |",
               f"| Chance floor from the bin structure | **{100*q['pe']:.1f}%** |",
-              f"| **Cohen's kappa** | **{q['kappa']:+.3f}** |",
+              f"| Cohen's kappa, unweighted | {q['kappa']:+.3f} |",
+              f"| Cohen's kappa, linear weights | {q['kappa_linear']:+.3f} |",
+              f"| **Cohen's kappa, quadratic weights** | **{q['kappa_quadratic']:+.3f}** |",
               f"| Pearson r on the same series | {q['pearson']:+.3f} |", "",
-              "The Pearson value reproduces the correlation reported in `RESULTS.md`, so",
-              "this is the same comparison seen two ways. On the conventional",
-              "interpretation a kappa of this size is *slight* agreement. The correlation",
-              "and the chance-corrected statistic disagree about how much the cross-node",
-              "result is worth, and the chance-corrected one is the appropriate measure",
-              "for a discrete output.", "",
-              "This does not replace the segment-stability test in `ABLATION.md`, which is",
-              "direct empirical evidence and stands on its own. It explains a mechanism by",
-              "which the apparent agreement was possible.", "",
+              "The Pearson value reproduces the correlation in `RESULTS.md`, so this is",
+              "the same comparison seen two ways.", "",
+              "The bins are ORDERED, so unweighted kappa is the wrong variant on its own --",
+              "it treats a one-bin miss and a four-bin miss as identical failures. The",
+              "quadratic-weighted figure is the appropriate headline; note that it is",
+              "equivalent to the intraclass correlation. All three are given because the",
+              "gap between them measures how much of the disagreement is large-magnitude",
+              "rather than adjacent-bin.", "",
+              "**Two caveats, both of which apply here.** The conventional interpretive",
+              "bands for kappa are convention rather than derived result -- their authors",
+              "offered no evidence for them -- so no verbal label is attached to these",
+              "numbers. And kappa is known to misbehave when the marginal distributions",
+              "are unbalanced, which is exactly this case: three of the nine values hold",
+              "three quarters of the mass. The raw agreement and the chance floor are",
+              "given above so the coefficient can be checked against its inputs.", "",
+              "### What the contingency table says", "",
+              f"- Mass on the diagonal or its immediate neighbours: **{100*q['near_diagonal']:.1f}%**",
+              f"- Share of the OFF-diagonal mass in cells where the bin indices stand in a",
+              f"  2:1 ratio: **{100*q['ratio2_of_off']:.1f}%**",
+              f"- Largest single row / column share: {100*q['max_row']:.1f}% / {100*q['max_col']:.1f}%",
+              f"- Windows where both nodes changed bin at once: {100*q['flip_both']:.1f}%,",
+              f"  against {100*q['flip_independent']:.1f}% if the two changed independently",
+              f"  (phi = {q['flip_phi']:+.3f})", "",
+              "Mass concentrated near the diagonal indicates coarse quantisation of a",
+              "single underlying distribution; mass in the 2:1 cells would indicate octave",
+              "confusion; mass concentrated in one row or column would indicate one node",
+              "locking onto something non-respiratory. Synchronised changes would suggest",
+              "a property of the signal, independent ones noise-driven peak selection.",
+              "See `fig_v4_confusion.png`, where the 2:1 cells are outlined.", "",
+              "**A limitation not addressed here.** Parabolic interpolation of the",
+              "periodogram peak would give sub-bin resolution and remove the need for a",
+              "categorical statistic altogether. It is not implemented: doing so would",
+              "change every respiration number in this report, and the pipeline is frozen.",
+              "It is the first thing to try if this work is continued.", "",
+              "None of this replaces the segment-stability test in `ABLATION.md`, which is",
+              "direct empirical evidence and stands on its own. This section describes a",
+              "mechanism by which the apparent agreement was possible.", "",
               "See `fig_v3_estimator_bins.png`.", ""]
 
     path.write_text("\n".join(L), encoding="utf-8")
