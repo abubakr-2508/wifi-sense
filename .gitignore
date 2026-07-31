@@ -5,6 +5,10 @@ __pycache__/
 .venv/
 venv/
 
+# OneDrive drops these into any folder it syncs
+desktop.ini
+Thumbs.db
+
 # Analysis outputs ARE tracked: the figures, CSVs and RESULTS.md are the
 # deliverables of this project, and keeping them in the repository means the
 # results are readable without installing anything or sourcing the recordings.
