@@ -84,15 +84,17 @@ SEED = 20260731  # fixed so the printed numbers are stable across runs
 
 @dataclass
 class Check:
-    """One test case, in the shape the report's test-case tables need."""
+    """What one check measured, and whether that met its expectation.
+
+    Identity and results only. What a check is for, what it was given and what
+    was expected of it are stated in the function's own docstring and written up
+    in the report; they are deliberately not carried here, because everything
+    this object holds ends up in a file published to a public repository.
+    """
 
     tc: str
     title: str
     requirement: str        # the Section 3.3 requirement, by name
-    objective: str
-    description: str
-    inputs: str
-    expected: str
     measured: list = field(default_factory=list)   # (label, value) pairs
     status: str = "PASS"
     note: str = ""
@@ -110,23 +112,16 @@ class Check:
         self.status = "NOT RUN"
         self.note = why
 
-    @property
-    def actual(self) -> str:
-        body = "; ".join(f"{k} {v}" for k, v in self.measured)
-        if self.note:
-            body = f"{body} ({self.note})" if body else self.note
-        return body
-
 
 CHECKS: list = []
 
 
-def check(tc, title, requirement, objective, description, inputs, expected):
+def check(tc, title, requirement):
     """Register a test function and give it a pre-filled Check to populate."""
 
     def wrap(fn):
         def run():
-            c = Check(tc, title, requirement, objective, description, inputs, expected)
+            c = Check(tc, title, requirement)
             try:
                 fn(c)
             except Exception as exc:                       # a crash is a failure
@@ -177,18 +172,9 @@ def _node_payload_sizes(path: Path, node: int) -> list:
     "TC-01",
     "Source abstraction",
     "Source abstraction",
-    "Verify that all three sources present one interface and declare whether "
-    "they have been verified against hardware",
-    "Each source is instantiated and its declared interface inspected. The UDP "
-    "source is then driven over loopback with a hand-built ADR-018 frame, and "
-    "with a frame carrying the wrong magic number.",
-    "Three source classes; one well-formed 20-byte ADR-018 header with a "
-    "64-subcarrier payload; one frame with magic 0xC5110002",
-    "All three expose read/open/close/describe and a kind of rssi or csi; the "
-    "ESP32 source reports verified = False; a well-formed frame decodes to 64 "
-    "subcarriers; a wrong-magic frame is rejected",
 )
 def tc01(c: Check) -> None:
+    """Three sources, one interface; an ADR-018 frame in and out over loopback."""
     sources = [
         NetshRSSISource(),
         RecordedCSISource(RECORDINGS / PRETRAIN),
@@ -258,15 +244,9 @@ def tc01(c: Check) -> None:
     "TC-02",
     "Modal geometry selection",
     "Frame-geometry consistency",
-    "Verify that the loader selects the most common frame geometry rather than "
-    "the first one it encounters",
-    "The first decodable payload size on node 1 of the short recording is "
-    "compared against the geometry the 400-frame pre-scan selects.",
-    "pretrain recording, node 1",
-    "The pre-scan selects 64 values, and does so in spite of the first frame "
-    "carrying a different geometry",
 )
 def tc02(c: Check) -> None:
+    """Modal geometry must beat first-seen on node 1 of the short capture."""
     path = _recording(PRETRAIN)
     if path is None:
         c.skip(f"recording not found at {RECORDINGS / PRETRAIN}")
@@ -300,14 +280,9 @@ def tc02(c: Check) -> None:
     "TC-03",
     "Pre-scan representativeness",
     "Frame-geometry consistency",
-    "Verify that the geometry chosen from a 400-frame pre-scan is the same one "
-    "a pass over the whole recording would choose",
-    "For every node of both recordings, the pre-scan result is compared against "
-    "the mode taken over all decodable frames of that node.",
-    "Both recordings, nodes 1 and 2",
-    "The pre-scan and the whole-file mode agree in all four cases",
 )
 def tc03(c: Check) -> None:
+    """The 400-frame pre-scan must agree with the whole-file mode."""
     agree, total = 0, 0
     for name in (PRETRAIN, OVERNIGHT):
         path = _recording(name)
@@ -335,16 +310,9 @@ def tc03(c: Check) -> None:
     "TC-04",
     "Discarded-frame recursion margin",
     "Frame-geometry consistency",
-    "Establish how close the recorded source comes to exhausting the Python "
-    "call stack, given that it recurses once per discarded frame",
-    "RecordedCSISource.read() calls itself for every frame it discards "
-    "(sources.py:323 and :333). The longest consecutive run of discardable "
-    "frames is counted for each node of each recording and compared against the "
-    "interpreter's recursion limit.",
-    "Both recordings, nodes 1 and 2",
-    "The longest run stays well below sys.getrecursionlimit()",
 )
 def tc04(c: Check) -> None:
+    """How near read()'s per-discard recursion comes to the stack limit."""
     limit = sys.getrecursionlimit()
     worst, worst_where = 0, ""
     for name in (PRETRAIN, OVERNIGHT):
@@ -394,17 +362,9 @@ def tc04(c: Check) -> None:
     "TC-05",
     "Ambient calibration",
     "Ambient calibration",
-    "Verify that the detector learns a baseline over the configured interval "
-    "and reports its progress while doing so",
-    "A detector is driven with seeded Gaussian samples. The state, the reported "
-    "progress and the number of samples consumed before the baseline completes "
-    "are recorded.",
-    "20 Hz, 4 s window, 15 s calibration, seeded normal(0, 1)",
-    "Progress rises monotonically to 1.0, the baseline completes after the "
-    "window has filled plus the calibration interval, and no decision is "
-    "reported before it does",
 )
 def tc05(c: Check) -> None:
+    """The baseline must complete on schedule and report progress meanwhile."""
     fs = 20.0
     det = MotionDetector(fs=fs, window_s=4.0, calibration_s=15.0, source_kind="rssi")
     rng = np.random.default_rng(SEED)
@@ -454,15 +414,9 @@ def tc05(c: Check) -> None:
     "TC-06",
     "Calibration on a perfectly still input",
     "Ambient calibration",
-    "Verify that a zero-variance ambient period cannot produce an infinite "
-    "z-score",
-    "A constant signal is fed through calibration, which drives the standard "
-    "deviation of window dispersion to zero. The floor at detector.py:229 "
-    "should keep every subsequent z-score finite.",
-    "20 Hz, constant 1.0 for 600 samples",
-    "sigma_std is greater than zero and the resulting z-scores are finite",
 )
 def tc06(c: Check) -> None:
+    """A zero-variance ambient period must not yield an infinite score."""
     det = MotionDetector(fs=20.0, window_s=4.0, calibration_s=15.0, source_kind="rssi")
     for _ in range(500):
         det.update(1.0, -60.0)
@@ -486,18 +440,9 @@ def tc06(c: Check) -> None:
     "TC-07",
     "Hysteresis",
     "Motion decision",
-    "Verify that the state entered above the upper threshold is left only below "
-    "the lower one",
-    "The decision rule is driven with supplied z-scores from each state, and "
-    "then the whole path is exercised end to end by calibrating on quiet "
-    "samples, feeding agitated ones and returning to quiet.",
-    "enter 3.0, exit 1.5; z of 2.0 and 3.5 from idle and from motion; then "
-    "seeded normal(0, 1) and normal(0, 4)",
-    "z = 2.0 does not enter the motion state but does not leave it either; the "
-    "end-to-end z rises above the enter threshold under agitation and falls "
-    "back below it",
 )
 def tc07(c: Check) -> None:
+    """Enter high, leave low: the gap that stops the state chattering."""
     det = MotionDetector(fs=20.0, source_kind="rssi", enter_z=3.0, exit_z=1.5)
 
     rows = []
@@ -547,13 +492,9 @@ def tc07(c: Check) -> None:
     "TC-08",
     "Debounce",
     "Motion decision",
-    "Verify that a single unusual window cannot change the reported state",
-    "With the baseline already learned, a single motion-target window is "
-    "applied and the state inspected, then two consecutive ones.",
-    "debounce = 2, starting from the idle state",
-    "One window leaves the state unchanged; two consecutive windows change it",
 )
 def tc08(c: Check) -> None:
+    """One window must not flip the state; two consecutive ones must."""
     det = MotionDetector(fs=20.0, source_kind="rssi", debounce=2)
     det.state = State.IDLE
 
@@ -588,18 +529,9 @@ def tc08(c: Check) -> None:
     "TC-09",
     "Threshold adjustment invariant",
     "Runtime adjustment",
-    "Verify that no combination the interface can send leaves the detector with "
-    "an exit threshold at or above its enter threshold, and that adjusting "
-    "thresholds does not discard the learned baseline",
-    "Every combination of a grid of enter and exit values, including negative, "
-    "crossed and far out-of-range inputs, is applied through set_thresholds and "
-    "the invariant re-checked after each.",
-    "enter in {-5, 0.5, 2, 3, 8, 100}; exit in {-5, 0.2, 1.5, 5, 100}; "
-    "debounce in {0, 2, 50}",
-    "enter > exit holds after every combination, values are clamped to their "
-    "documented ranges, and the baseline is unchanged",
 )
 def tc09(c: Check) -> None:
+    """No slider combination may invert the thresholds or lose the baseline."""
     det = MotionDetector(fs=20.0, source_kind="rssi")
     rng = np.random.default_rng(SEED)
     for _ in range(400):                      # learn a baseline to protect
@@ -645,17 +577,9 @@ def tc09(c: Check) -> None:
     "TC-10",
     "Refusal with a reason",
     "Refusal with a reason",
-    "Verify that every quantity the system cannot support is refused with a "
-    "stated reason rather than returned as a number",
-    "The respiration estimator is called in each of its three refusal "
-    "conditions; an RSSI detector is asked for respiration; and the capability "
-    "gate is inspected for a CSI source at 20 Hz and an RSSI source at 4 Hz.",
-    "Empty array; fs = 0.8 Hz; a 5 s window at 20 Hz; source_kind rssi; both "
-    "capability configurations",
-    "Each refusal carries supported = False and a distinct non-empty reason; "
-    "pose is unavailable in every configuration; every capability has a reason",
 )
 def tc10(c: Check) -> None:
+    """Every unsupported quantity must come back refused, with a reason."""
     rng = np.random.default_rng(SEED)
 
     refusals = {
@@ -702,18 +626,9 @@ def tc10(c: Check) -> None:
     "TC-11",
     "Respiration estimate",
     "Respiration estimate",
-    "Verify that the estimate is the median across the highest-variance "
-    "subcarriers, that structural zeros are excluded from the ranking, and that "
-    "the agreement across those subcarriers is reported",
-    "A synthetic 64-subcarrier stream is built with the real null pattern held "
-    "at zero, six subcarriers carrying a tone placed exactly on a spectral bin, "
-    "and the rest seeded noise. The stream is fed through the detector.",
-    "20 Hz, 620 samples, tone at 0.3125 Hz (18.75 br/min), nulls at index 0 and "
-    "27-37, noise sigma 0.2",
-    "Eight subcarriers are chosen, none of them a null, and the returned rate "
-    "is within half a spectral bin of 18.75 br/min",
 )
 def tc11(c: Check) -> None:
+    """Top-K median, nulls excluded, a tone recovered from a known bin."""
     fs, n = 20.0, 620
     nulls = {0, *range(27, 38)}
     carriers = [10, 11, 12, 13, 14, 15]
@@ -799,17 +714,9 @@ def _post(port, route, payload=None):
     "TC-12",
     "Local interface",
     "Local interface",
-    "Verify that the four endpoints the browser calls respond correctly, and "
-    "that the waterfall returns only the columns a client has not yet seen",
-    "The real service is started on an ephemeral loopback port against the "
-    "short recording. Each endpoint is called over HTTP, and the waterfall is "
-    "polled twice to confirm the sequence number advances without resending.",
-    "GET /api/state, GET /api/waterfall, POST /api/calibrate, "
-    "POST /api/thresholds, GET /api/nonexistent",
-    "All four return 200 with the documented keys, an unknown route returns "
-    "404, and a second waterfall poll returns only newer columns",
 )
 def tc12(c: Check) -> None:
+    """The four endpoints, over real HTTP, on a port the OS chooses."""
     svc, httpd, port = _serve_on_ephemeral_port()
     if svc is None:
         c.skip(f"recording not found at {RECORDINGS / PRETRAIN}")
@@ -861,17 +768,9 @@ def tc12(c: Check) -> None:
     "TC-13",
     "Network exposure",
     "Network exposure",
-    "Verify that the server binds to the loopback address by default and "
-    "refuses any request for a file outside the web directory",
-    "The documented defaults of serve() and of the launcher are inspected, and "
-    "path-traversal requests are sent as raw request lines through http.client "
-    "so that no client-side normalisation can hide the attempt.",
-    "GET /static/style.css, GET /static/../wifisense/detector.py, "
-    "GET /static/%2e%2e/wifisense/detector.py",
-    "A legitimate static file is served; both traversal attempts are refused "
-    "with 403 or 404 and no file content is returned",
 )
 def tc13(c: Check) -> None:
+    """Loopback by default; nothing served from outside the web directory."""
     import inspect
 
     default_host = inspect.signature(serve).parameters["host"].default
@@ -930,19 +829,9 @@ _FETCHABLE = re.compile(
     "TC-14",
     "Offline operation, dependencies and throughput",
     "Offline operation · Dependencies · Throughput",
-    "Verify that the interface fetches nothing from the network, that the "
-    "server module imports only the standard library, and that the pipeline "
-    "keeps pace with a 20 Hz stream on one core",
-    "The three files the browser loads are scanned for references that would "
-    "cause a fetch. Every module is parsed with ast and its imports classified "
-    "against sys.stdlib_module_names. The detector is then driven with 2,000 "
-    "synthetic CSI samples and the achieved rate measured.",
-    "web/index.html, web/style.css, web/app.js; the five package modules; "
-    "2,000 samples of 64 subcarriers at 20 Hz",
-    "No fetchable external reference; server.py imports no third-party module; "
-    "the achieved rate exceeds 20 Hz",
 )
 def tc14(c: Check) -> None:
+    """No fetched asset, no third-party import in the server, 20 Hz cleared."""
     external = []
     for name in ("index.html", "style.css", "app.js"):
         text = (ROOT / "web" / name).read_text(encoding="utf-8")
@@ -1005,15 +894,9 @@ def tc14(c: Check) -> None:
     "TC-15",
     "Analysis regression",
     "Reproducibility",
-    "Verify that regenerating the offline analysis reproduces the committed "
-    "report and tables byte for byte",
-    "analyze_csi.py is re-run over the short recording into a temporary "
-    "directory and the SHA-256 of RESULTS.md and both CSV tables compared "
-    "against the committed copies in output/.",
-    "pretrain recording, default parameters",
-    "All three files hash identically to the committed versions",
 )
 def tc15(c: Check) -> None:
+    """Regenerating the analysis must reproduce the committed artefacts."""
     if "--slow" not in sys.argv:
         c.skip("not run by default; pass --slow (takes about a minute)")
         return
