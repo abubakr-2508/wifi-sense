@@ -338,7 +338,16 @@ class MotionDetector:
         """
         self.buffer.append(float(value))
         self.resp_buffer.append(float(value))
-        self.level_history.append(float(rssi_dbm))
+        # The dashboard labels this trace "mean subcarrier amplitude" for a CSI
+        # source and "dBm" for an RSSI one, so it has to be given the quantity
+        # it names. Appending rssi_dbm unconditionally made the CSI chart plot
+        # the recording's RSSI field instead -- which in these captures is a
+        # placeholder constant, so the trace was a flat line under a label
+        # promising something else. `value` already IS the mean subcarrier
+        # amplitude for a CSI source, and equals rssi_dbm for an RSSI one.
+        self.level_history.append(
+            float(value) if self.source_kind == "csi" else float(rssi_dbm)
+        )
         if vector is not None and vector.size:
             self.vector_buffer.append(np.asarray(vector, dtype=float))
 
