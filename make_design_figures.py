@@ -844,11 +844,20 @@ def fig_component():
     statement in the five analysis scripts, which is why two of them are drawn
     with no connector at all: phase_study.py and verification.py share no code
     with the pipeline and decode the capture themselves.
+
+    selftest.py sits outside the offline-studies group deliberately. The five
+    scripts inside it measure the data; the self-test drives the modules and
+    checks the requirements, which is a different job.
     """
     W, H = 451.0, 390.0
     fig, ax = canvas(W, H)
 
     component(ax, 226, 356, 150, 34, "web", "index.html · app.js · style.css")
+    # h=46 rather than 40: component() puts a sub at y-8, so the lower line of a
+    # two-line sub sits ~19 pt below centre and a shorter box leaves it touching
+    # the bottom rule.
+    component(ax, 380, 352, 128, 46, "selftest.py",
+              "server, detector,\nsources, dsp")
     component(ax, 226, 292, 196, 48, "wifisense.server",
               "/api/state · /api/waterfall\n/api/calibrate · /api/thresholds")
     component(ax, 128, 224, 138, 32, "wifisense.detector")
@@ -864,6 +873,7 @@ def fig_component():
     arrow(ax, (152, 208), (206, 182), **dep)
     arrow(ax, (306, 208), (250, 182), **dep)
     arrow(ax, (111, 292), (128, 292), **dep)
+    arrow(ax, (356, 329), (314, 317), **dep)
 
     ax.add_patch(Rectangle((8, 14), 435, 120, facecolor="none", edgecolor=INK,
                            linewidth=0.7, linestyle=(0, (4, 3)), zorder=1))
