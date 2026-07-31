@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -35,6 +36,7 @@ import matplotlib
 matplotlib.use("Agg")  # no display needed; write straight to file
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy import signal as sp_signal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -280,9 +282,16 @@ def fig_respiration_extraction(nodes: dict, selected: dict, out: Path, window_s:
     axes[1].set_ylabel("amplitude")
     axes[1].set_xlabel("time (s)")
 
-    # Spectrum of the conditioned signal, respiratory band shaded.
-    spec = np.abs(np.fft.rfft(clean * np.hanning(clean.size)))
-    freqs = np.fft.rfftfreq(clean.size, 1.0 / fs)
+    # Plot the SAME spectrum the estimator searches: a Welch PSD of the
+    # BAND-PASSED signal, with the identical segment length dsp._band_power
+    # uses. An earlier version drew a Hann-windowed raw FFT of the unfiltered
+    # series while annotating it with the peak returned by
+    # respiratory_estimate -- two different estimators over two different
+    # signals on one axis. On some windows they disagreed badly enough that the
+    # marked peak landed in a trough of the drawn curve, which is worse than
+    # having no figure at all.
+    nper = int(min(band.size, max(8, 2 ** int(math.log2(max(band.size // 2, 8))))))
+    freqs, spec = sp_signal.welch(band, fs=fs, nperseg=nper)
     keep = freqs <= 1.2
     axes[2].plot(freqs[keep], spec[keep], color=C_PRIMARY, lw=1.3)
     axes[2].axvspan(*RESPIRATORY_BAND_HZ, color=C_GREEN, alpha=0.13,
@@ -292,7 +301,7 @@ def fig_respiration_extraction(nodes: dict, selected: dict, out: Path, window_s:
                         label=f"peak {est.bpm:.1f} br/min")
     axes[2].set_title("Spectrum — respiratory peak")
     axes[2].set_xlabel("frequency (Hz)")
-    axes[2].set_ylabel("|FFT|")
+    axes[2].set_ylabel("PSD (Welch)")
     axes[2].legend(frameon=False, fontsize=8)
 
     fig.tight_layout()
