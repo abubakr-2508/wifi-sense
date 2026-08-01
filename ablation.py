@@ -396,7 +396,10 @@ def fig_topk(rows, out: Path):
     spread = [r["spread"] for r in rows]
 
     excess = [r["excess"] for r in rows]
-    fig, ax = plt.subplots(1, 2, figsize=(11, 4.2))
+    # Stacked, not side by side: at 11 in wide this had to be scaled to 0.57 to
+    # fit the report's 451 pt column, printing its 9 pt labels at 5.2 pt. Both
+    # panels share the K axis, so stacking also puts them in register.
+    fig, ax = plt.subplots(2, 1, figsize=(6.2, 7.0), sharex=True)
     x = np.arange(len(xs))
     # Shade the excess (aligned above control): the agreement the control does
     # not already account for. Not itself proof of a shared signal.
@@ -407,25 +410,30 @@ def fig_topk(rows, out: Path):
     ax[0].plot(x, control, "s--", color=C_ACC, lw=1.3, label="strongest control")
     ax[0].set_xticks(x)
     ax[0].set_xticklabels(xs)
-    ax[0].set_xlabel("top-K subcarriers (median), or mean-of-all")
+    # No xlabel on the upper panel: sharex puts the axis under the lower one.
     ax[0].set_ylabel("cross-node correlation")
     ax[0].set_title("Subcarrier aggregation vs node agreement")
     ax[0].axhline(0, color=C_MUT, lw=0.7)
     ax[0].legend(frameon=False, fontsize=8)
     best = int(np.argmax(excess))
+    # Headroom first: the best-excess point sits near the top of the range, and
+    # once the panels were stacked a +12 pt offset put this label outside the
+    # axes and on top of the subplot title. Found by looking at the figure.
+    ax[0].margins(y=0.20)
     ax[0].annotate("best excess", (x[best], aligned[best]),
-                   textcoords="offset points", xytext=(0, 12),
+                   textcoords="offset points", xytext=(0, 11),
                    ha="center", fontsize=8, color=C_MAIN)
 
     ax[1].plot(x, spread, "o-", color=C_GRN, lw=1.8)
     ax[1].set_xticks(x)
     ax[1].set_xticklabels(xs)
-    ax[1].set_xlabel("top-K subcarriers")
-    ax[1].set_ylabel("mean spread across chosen subcarriers (br/min)")
+    ax[1].set_xlabel("top-K subcarriers (median), or mean-of-all")
+    ax[1].set_ylabel("mean spread across chosen\nsubcarriers (br/min)")
     ax[1].set_title("Estimate consistency vs K")
 
-    fig.suptitle("Ablation 1 — subcarrier aggregation (K=1 noisy, mean diluted, intermediate best)",
-                 fontsize=10.5, y=1.02)
+    fig.suptitle("Ablation 1 — subcarrier aggregation\n"
+                 "(K=1 noisy, mean diluted, intermediate best)",
+                 fontsize=10.5, y=1.005)
     fig.tight_layout()
     fig.savefig(out / "fig_ablation1_topk.png")
     plt.close(fig)
@@ -635,6 +643,13 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
     ]
     for r in p_rows:
         lines.append(f"| {r['value']} | {r['aligned']:+.3f} | {r['control']:.3f} | {r['excess']:+.3f} |")
+    # Read the two rows the Hampel claim below rests on, rather than asserting a
+    # number. The previous wording said Hampel "lowers excess correlation in 4 of
+    # 5 disjoint segments" -- a hardcoded string borrowed from the segment test in
+    # section 5, which measures something else entirely. Section 3 computes no
+    # per-segment breakdown at all, so that claim had nothing behind it.
+    _pmap = {r["value"]: r for r in p_rows}
+    _pnone, _phamp = _pmap.get("none"), _pmap.get("Hampel")
     lines += [
         "",
         f"**Best by this metric: {pb['value']}** (excess {pb['excess']:+.3f}).",
@@ -652,7 +667,10 @@ def write_report(path, out, k_rows, w_rows, p_rows, order_rows, default_score, s
         "as zero-crossing counting; for peak extraction it does not.",
         "",
         "**Hampel filtering does not improve this metric.** It lowers excess",
-        "correlation in 4 of 5 disjoint segments. Outlier removal is defensible on",
+        (f"correlation from {_pnone['excess']:+.3f} to {_phamp['excess']:+.3f} "
+         "over this recording. Outlier removal is defensible on"
+         if _pnone and _phamp else
+         "correlation over this recording. Outlier removal is defensible on"),
         "signal-quality grounds -- an impulsive spike genuinely is not channel",
         "information -- but the ablation provides no evidence that it improves",
         "cross-node agreement, and the honest conclusion is that its benefit is",

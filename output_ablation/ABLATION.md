@@ -117,7 +117,7 @@ extracted peak in 1 trial out of 200 (99.5% identical, mean difference
 as zero-crossing counting; for peak extraction it does not.
 
 **Hampel filtering does not improve this metric.** It lowers excess
-correlation in 4 of 5 disjoint segments. Outlier removal is defensible on
+correlation from +0.329 to +0.263 over this recording. Outlier removal is defensible on
 signal-quality grounds -- an impulsive spike genuinely is not channel
 information -- but the ablation provides no evidence that it improves
 cross-node agreement, and the honest conclusion is that its benefit is
