@@ -266,14 +266,28 @@ def fig_fade(res, out: Path):
 def fig_bins(q, out: Path):
     if not q:
         return
-    fig, ax = plt.subplots(figsize=(7.4, 3.6))
+    # The SPLIT is the finding, so the figure has to draw it. A median over an
+    # even K averages the two central values, so every second observed value
+    # falls between two Welch bins, at a frequency the transform never offered.
+    # Plotting all nine as identical dots showed a reader nothing at all --
+    # found by looking at the printed figure beside the text it illustrates.
+    # 6.2 in wide rather than 7.4 so the report's 451 pt column needs no
+    # scaling and the 9 pt labels stay 9 pt on paper.
+    fig, ax = plt.subplots(figsize=(6.2, 3.4))
     for i, (n, s) in enumerate(sorted(q["per_node"].items())):
-        ax.plot(s["values"], np.full(len(s["values"]), i),
-                "o", ms=9, label=f"node {n} ({s['distinct']} distinct)")
+        col = C_MAIN if i == 0 else C_ACC
+        ax.plot(s["real_bins"], np.full(len(s["real_bins"]), i), "o", ms=9,
+                color=col, zorder=3,
+                label=f"node {n}: {len(s['real_bins'])} resolvable")
+        ax.plot(s["midpoints"], np.full(len(s["midpoints"]), i), "o", ms=9,
+                mfc="none", mec=col, mew=1.5, zorder=3,
+                label=f"node {n}: {len(s['midpoints'])} median artefact")
     ax.set_yticks([0, 1]); ax.set_yticklabels(["node 1", "node 2"])
-    ax.set_xlabel("breaths per minute the estimator can return")
-    ax.set_title("Every value the respiration estimator produced", fontsize=10)
-    ax.legend(frameon=False, fontsize=8)
+    ax.set_ylim(-0.7, 1.9)
+    ax.set_xlabel("breaths per minute")
+    ax.set_title("Only half of what the estimator returns\n"
+                 "is a frequency it can resolve", fontsize=10)
+    ax.legend(frameon=False, fontsize=7, ncol=2, loc="upper center")
     fig.tight_layout()
     fig.savefig(out / "fig_v3_estimator_bins.png", dpi=140)
     plt.close(fig)
