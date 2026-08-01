@@ -378,7 +378,12 @@ def fig_node_agreement(results: dict, out: Path) -> dict:
     bias = float(np.mean(diff))
     loa = 1.96 * float(np.std(diff))
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.1))
+    # Stacked, not side by side. At 11 in wide this had to be scaled to 0.57 to
+    # reach the report's 451 pt column, printing its 9 pt labels at 5.2 pt. It
+    # carries more than the headline correlation: the scatter shows the
+    # estimator's quantisation lattice directly, and the Bland-Altman shows the
+    # same thing as diagonal banding, so it needs to be legible.
+    fig, axes = plt.subplots(2, 1, figsize=(6.2, 7.4))
 
     axes[0].scatter(ia, ib, s=13, color=C_PRIMARY, alpha=0.55, edgecolors="none")
     lim = [min(ia.min(), ib.min()) - 1, max(ia.max(), ib.max()) + 1]
