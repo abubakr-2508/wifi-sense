@@ -217,15 +217,30 @@ def band_concentration(x: np.ndarray, fs: float, band=RESP_BAND):
 
 def fig_sanitization(csi, ts, active, out: Path):
     """Show the CFO/STO corruption and what sanitization removes."""
-    fig, ax = plt.subplots(1, 3, figsize=(13, 3.6))
+    # Stacked rather than side by side. At 13 in wide the figure had to be
+    # scaled to 0.49 to reach the report's 451 pt column, which put its 9 pt
+    # labels on the page at 4.4 pt -- well under the reference report's own
+    # ~6-7 pt. At 6.2 in it needs no scaling at all.
+    fig, ax = plt.subplots(3, 1, figsize=(6.2, 8.1))
     idx = np.arange(active.size)
+
+    # The nulls are excluded from `active`, so the series jumps from raw 26 to
+    # raw 38 partway along. Against an ACTIVE index that gap plots as a step,
+    # and the step is large enough to read as the dominant feature. Marking it
+    # is the difference between a reader seeing an artefact and seeing a fault.
+    gaps = np.where(np.diff(active) > 1)[0]
 
     # Panel 1: raw phase across subcarriers at a few instants -> STO ramp
     for t in (10, 200, 500):
         if t < csi.shape[0]:
             ph = np.unwrap(np.angle(csi[t, active]))
             ax[0].plot(idx, ph, lw=1.1, alpha=0.85, label=f"frame {t}")
-    ax[0].set_title("Raw phase across subcarriers\n(linear STO ramp + offset)")
+    # Line only, no in-plot label: a rotated caption here runs straight through
+    # the three curves and the panel title already names what the step is.
+    for g in gaps:
+        ax[0].axvline(g + 0.5, color=C_MUT, lw=0.8, ls=":")
+    ax[0].set_title("Raw phase across subcarriers\n"
+                    "(STO ramp; the step is the excised guard band)")
     ax[0].set_xlabel("active subcarrier index")
     ax[0].set_ylabel("unwrapped phase (rad)")
     ax[0].legend(frameon=False, fontsize=8)
@@ -236,16 +251,26 @@ def fig_sanitization(csi, ts, active, out: Path):
         if t < san.shape[0]:
             ax[1].plot(idx, san[t], lw=1.1, alpha=0.85, label=f"frame {t}")
     ax[1].axhline(0, color=C_MUT, lw=0.7)
-    ax[1].set_title("After linear sanitization\n(STO + offset removed)")
+    for g in gaps:
+        ax[1].axvline(g + 0.5, color=C_MUT, lw=0.8, ls=":")
+    # "noise" would be the wrong word for what this panel shows: the three
+    # frames lie almost on top of one another, so what survives the linear fit
+    # is a repeatable frequency-dependent error, not a random one.
+    ax[1].set_title("After linear sanitization\n"
+                    "(residual is structured, and repeats across frames)")
     ax[1].set_xlabel("active subcarrier index")
     ax[1].set_ylabel("residual phase (rad)")
     ax[1].legend(frameon=False, fontsize=8)
 
     # Panel 3: raw phase over time on one subcarrier -> CFO drift
-    sc = active[active.size // 2]
+    # `sc` is a RAW index while the panels above use an ACTIVE one; naming both
+    # stops a reader looking for active index 38, which is a different carrier.
+    mid = active.size // 2
+    sc = active[mid]
     raw_t = np.angle(csi[:, sc])
     ax[2].plot(np.arange(raw_t.size), raw_t, lw=0.6, color=C_PHA)
-    ax[2].set_title(f"Raw phase over time, subcarrier {sc}\n(CFO drift, wraps to noise)")
+    ax[2].set_title(f"Raw phase over time, raw subcarrier {sc} (active index {mid})\n"
+                    "(CFO drift, wraps to noise)")
     ax[2].set_xlabel("frame")
     ax[2].set_ylabel("phase (rad)")
 
