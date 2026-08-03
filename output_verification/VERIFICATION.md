@@ -75,17 +75,20 @@ resolve; the rest are averaging artefacts. An odd K would remove them.
 - **Node 1**: 29585 windows taking **9 distinct values**, apparently spaced 2.271 bpm apart, but resting on only **5 real bins** at 4.543 bpm. Three values hold 79.0% of the output.
   Resolvable: 9.09, 13.63, 18.17, 22.71, 27.26
   Median artefacts: 11.36, 15.90, 20.44, 24.99
+  Most frequent: 13.63 bpm, 29.9% of windows
 - **Node 2**: 29787 windows taking **9 distinct values**, apparently spaced 2.283 bpm apart, but resting on only **5 real bins** at 4.566 bpm. Three values hold 75.3% of the output.
   Resolvable: 9.13, 13.70, 18.26, 22.83, 27.39
   Median artefacts: 11.41, 15.98, 20.54, 25.11
+  Most frequent: 13.70 bpm, 31.0% of windows
 
 Two of these values stand in an exact 2:1 ratio. That is **not** evidence
 of an octave ambiguity, and an earlier draft of this file wrongly said it
 was: a uniform grid contains 2:1 index pairs by construction, so the
 exactness of the ratio carries no information about the signal. What does
-need explaining is the *bimodality* -- two non-adjacent values holding
-roughly half the mass -- and the contingency table below is what
-distinguishes the candidate explanations.
+need explaining is the concentration listed above: three of the nine values
+carry most of the output, and the most frequent of them is neither member
+of the 2:1 pair. The contingency table below is what distinguishes the
+candidate explanations.
 
 Because the output is discrete, agreement between the nodes carries a floor
 that owes nothing to physiology: two independent estimators restricted to

@@ -144,6 +144,8 @@ def quantisation(csv_path: Path):
             "values": vals,
             "spacing": float(np.median(np.diff(vals))) if len(vals) > 1 else 0.0,
             "top3_share": 100.0 * sum(sorted(c.values(), reverse=True)[:3]) / len(series),
+            "mode": float(max(c, key=c.get)),
+            "mode_share": 100.0 * max(c.values()) / len(series),
         }
 
     # Which of the observed values are real Welch bins, and which are artefacts?
@@ -190,7 +192,7 @@ def quantisation(csv_path: Path):
     k_lin = weighted(np.abs(I - J) / max(K - 1, 1))    # linear
     k_quad = weighted(((I - J) / max(K - 1, 1)) ** 2)  # quadratic == ICC
 
-    # Diagnostics that separate the competing explanations for the bimodality.
+    # Diagnostics that separate the competing explanations for the concentration.
     near = float(O[np.abs(I - J) <= 1].sum())
     ratio2 = 0.0
     for x in range(K):
@@ -426,15 +428,17 @@ def write_report(path: Path, src: Path, res: dict, q):
                   f"on only **{len(s['real_bins'])} real bins** at {s['true_spacing']:.3f} "
                   f"bpm. Three values hold {s['top3_share']:.1f}% of the output.",
                   f"  Resolvable: {', '.join(f'{v:.2f}' for v in s['real_bins'])}",
-                  f"  Median artefacts: {', '.join(f'{v:.2f}' for v in s['midpoints'])}"]
+                  f"  Median artefacts: {', '.join(f'{v:.2f}' for v in s['midpoints'])}",
+                  f"  Most frequent: {s['mode']:.2f} bpm, {s['mode_share']:.1f}% of windows"]
         L += ["",
               "Two of these values stand in an exact 2:1 ratio. That is **not** evidence",
               "of an octave ambiguity, and an earlier draft of this file wrongly said it",
               "was: a uniform grid contains 2:1 index pairs by construction, so the",
               "exactness of the ratio carries no information about the signal. What does",
-              "need explaining is the *bimodality* -- two non-adjacent values holding",
-              "roughly half the mass -- and the contingency table below is what",
-              "distinguishes the candidate explanations.", "",
+              "need explaining is the concentration listed above: three of the nine values",
+              "carry most of the output, and the most frequent of them is neither member",
+              "of the 2:1 pair. The contingency table below is what distinguishes the",
+              "candidate explanations.", "",
               "Because the output is discrete, agreement between the nodes carries a floor",
               "that owes nothing to physiology: two independent estimators restricted to",
               "the same handful of bins coincide some of the time by construction. Kappa",
