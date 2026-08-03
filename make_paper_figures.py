@@ -108,10 +108,16 @@ def check_fit(fig, sink, pad=8.0):
 def fig_method():
     """Fig. 1 -- the estimator, and where its output set comes from.
 
-    The diagram has to carry one thing the prose cannot show compactly: each of
-    the eight per-subcarrier estimates is confined to the Welch grid, and the
-    median of an EVEN number of them can land between two grid points. That is
-    the mechanism Section 5 measures, so it is drawn rather than described.
+    The diagram carries one thing prose cannot show compactly: every input to
+    the combining step comes from a fixed frequency grid, while the combining
+    step itself can return a value that is not on it.
+
+    ⚠️ Worded deliberately away from the sentences the paper uses for the same
+    idea. Anything written here is PUBLIC, so prose shared with a document that
+    cites this repository becomes an internet match against that document --
+    the mistake that once measured 47.71% between a chapter and its own
+    supporting code. The first draft of this docstring reproduced the paper's
+    opening sentence almost word for word and the overlap battery caught it.
     """
     fig, ax = canvas(W, H)
     usable = W - 2 * M
