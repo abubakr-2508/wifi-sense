@@ -31,15 +31,34 @@
 
   /* ---------- charts ---------- */
 
+  /* The height the canvas should OCCUPY, in CSS pixels, remembered on first
+     use. It cannot be re-read from the element each time: `canvas.height = ...`
+     writes the very attribute a naive read would come back to, so the next call
+     multiplies by devicePixelRatio a second time and the canvas compounds at
+     the poll rate. At ratio 1 the multiplication is by one and nothing moves,
+     which is why this was invisible for months; at 1.5 -- ordinary browser zoom
+     to 150%, or a scaled external display -- it measured
+     180 -> 910 -> 6907 -> 23310 -> 597397 px in six seconds, until the backing
+     store failed to allocate and the card collapsed to nothing. */
+  function cssHeight(canvas, fallback) {
+    if (canvas.dataset.cssHeight === undefined) {
+      canvas.dataset.cssHeight =
+        parseInt(canvas.getAttribute("height"), 10) || fallback;
+    }
+    return parseInt(canvas.dataset.cssHeight, 10);
+  }
+
   // Fit the backing store to the CSS size and device pixel ratio, so lines
   // stay crisp on high-DPI displays instead of blurring.
   function prepare(canvas) {
     var ratio = window.devicePixelRatio || 1;
     var w = canvas.clientWidth;
-    var h = parseInt(canvas.getAttribute("height"), 10) || 180;
+    var h = cssHeight(canvas, 180);
     if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
       canvas.width = w * ratio;
       canvas.height = h * ratio;
+      // Pin the displayed height so layout no longer depends on the attribute.
+      canvas.style.height = h + "px";
     }
     var ctx = canvas.getContext("2d");
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -247,10 +266,11 @@
   function drawWaterfall(canvas) {
     var ratio = window.devicePixelRatio || 1;
     var w = canvas.clientWidth;
-    var h = parseInt(canvas.getAttribute("height"), 10) || 200;
+    var h = cssHeight(canvas, 200);
     if (canvas.width !== w * ratio || canvas.height !== h * ratio) {
       canvas.width = w * ratio;
       canvas.height = h * ratio;
+      canvas.style.height = h + "px";
     }
     var ctx = canvas.getContext("2d");
     ctx.setTransform(1, 0, 0, 1, 0, 0);
