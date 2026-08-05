@@ -14,6 +14,13 @@ Thumbs.db
 # results are readable without installing anything or sourcing the recordings.
 # They stay reproducible via `python analyze_csi.py`.
 
+# The one exception, and it is not a result: built, tried along the foot of the
+# presentation's title slide, and removed, because at 0.85 in a strip of real
+# channel data read as a decorative stripe rather than as data. Ignored rather
+# than left untracked so `git status` stays quiet and the next genuinely new
+# file is visible. Rebuild with `make_slide_figures.py --only titleband`.
+docs/figures/slides/title_band.png
+
 # Recordings are large and belong to their original authors; see README
 *.csi.jsonl
 *.jsonl
